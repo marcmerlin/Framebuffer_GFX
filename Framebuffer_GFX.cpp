@@ -35,7 +35,7 @@
   -------------------------------------------------------------------------*/
 
 #include <Adafruit_GFX.h>
-#include <SmartMatrix_GFX.h>
+#include <Framebuffer_GFX.h>
 #include "gamma.h"
 #ifdef __AVR__
  #include <avr/pgmspace.h>
@@ -54,23 +54,32 @@
 
 #include "FastLED.h"
 
-SmartMatrix_GFX::SmartMatrix_GFX(CRGB *leds, uint8_t w, uint8_t h, void (* showptr)()): 
-  Adafruit_GFX(w, h),
-  type(0), matrixWidth(w), matrixHeight(h), tilesX(0), tilesY(0), remapFn(NULL){ 
-    _leds = leds;
+Framebuffer_GFX::Framebuffer_GFX(CRGB *fb, uint8_t w, uint8_t h, void (* showptr)()): 
+  Adafruit_GFX(w, h), matrixWidth(w), matrixHeight(h), remapFn(NULL){ 
+    _fb = fb;
     _show = showptr;
+    type = 0;
+    tilesX = 0;
+    tilesY = 0;
     // WARNING: Serial.print seems to crash in the constructor, 
     // but works in begin()
     numpix = matrixWidth * matrixHeight;
   }
 
-void SmartMatrix_GFX::begin() {
-  Serial.print("Num Pixels: ");
+void Framebuffer_GFX::begin() {
+  Serial.print("Framebuffer_GFX::begin Num Pixels: ");
   Serial.println(numpix);
+#if 0
+  Serial.println(matrixWidth);
+  Serial.println(matrixHeight);
+  Serial.println(tilesX);
+  Serial.println(tilesY);
+  Serial.println(type);
+#endif
 }
 
-void SmartMatrix_GFX::newLedsPtr(CRGB *new_leds_ptr) {
-  _leds = new_leds_ptr;
+void Framebuffer_GFX::newLedsPtr(CRGB *new_fb_ptr) {
+  _fb = new_fb_ptr;
 }
 
 // Expand 16-bit input color (Adafruit_GFX colorspace) to 24-bit (NeoPixel)
@@ -82,7 +91,7 @@ static uint32_t expandColor(uint16_t color) {
 }
 
 // Downgrade 24-bit color to 16-bit (add reverse gamma lookup here?)
-uint16_t SmartMatrix_GFX::Color(uint8_t r, uint8_t g, uint8_t b) {
+uint16_t Framebuffer_GFX::Color(uint8_t r, uint8_t g, uint8_t b) {
   return ((uint16_t)(r & 0xF8) << 8) |
          ((uint16_t)(g & 0xFC) << 3) |
                     (b         >> 3);
@@ -99,22 +108,22 @@ uint16_t SmartMatrix_GFX::Color(uint8_t r, uint8_t g, uint8_t b) {
 // it (call with no value)!
 
 // Pass raw color value to set/enable passthrough
-void SmartMatrix_GFX::setPassThruColor(CRGB c) {
+void Framebuffer_GFX::setPassThruColor(CRGB c) {
   passThruColor = c.r*65536+c.g*256+c.b;
   passThruFlag  = true;
 }
 
-void SmartMatrix_GFX::setPassThruColor(uint32_t c) {
+void Framebuffer_GFX::setPassThruColor(uint32_t c) {
   passThruColor = c;
   passThruFlag  = true;
 }
 
 // Call without a value to reset (disable passthrough)
-void SmartMatrix_GFX::setPassThruColor(void) {
+void Framebuffer_GFX::setPassThruColor(void) {
   passThruFlag = false;
 }
 
-int SmartMatrix_GFX::XY(int16_t x, int16_t y) {
+int Framebuffer_GFX::XY(int16_t x, int16_t y) {
 
   // If you send an out of bounds value, you get an special result 
   // pointing to the last pixel. It doesn't look great, but better
@@ -218,45 +227,52 @@ int SmartMatrix_GFX::XY(int16_t x, int16_t y) {
     }
   }
 
+#if 0
+  Serial.print(x);
+  Serial.print(" ");
+  Serial.print(y);
+  Serial.print(" ");
+  Serial.println(tileOffset + pixelOffset);
+#endif
   return(tileOffset + pixelOffset);
 }
 
-void SmartMatrix_GFX::drawPixel(int16_t x, int16_t y, uint16_t color) {
+void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
   if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-  _leds[XY(x,y)] = passThruFlag ? passThruColor : expandColor(color);
+  _fb[XY(x,y)] = passThruFlag ? passThruColor : expandColor(color);
 }
 
-void SmartMatrix_GFX::drawPixel(int16_t x, int16_t y, uint32_t color) {
+void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint32_t color) {
 
   if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-  _leds[XY(x,y)] = color;
+  _fb[XY(x,y)] = color;
 }
 
-void SmartMatrix_GFX::drawPixel(int16_t x, int16_t y, CRGB c) {
+void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, CRGB c) {
 
   if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-  _leds[XY(x,y)] = c.r*65536+c.g*256+c.b;
+  _fb[XY(x,y)] = c.r*65536+c.g*256+c.b;
 }
 
 
-void SmartMatrix_GFX::fillScreen(uint16_t color) {
+void Framebuffer_GFX::fillScreen(uint16_t color) {
   uint32_t c;
 
   c = passThruFlag ? passThruColor : expandColor(color);
-  for (uint16_t i=0; i<numpix; i++) { _leds[i]=c; }
+  for (uint16_t i=0; i<numpix; i++) { _fb[i]=c; }
 }
 
-void SmartMatrix_GFX::setRemapFunction(uint16_t (*fn)(uint16_t, uint16_t)) {
+void Framebuffer_GFX::setRemapFunction(uint16_t (*fn)(uint16_t, uint16_t)) {
   remapFn = fn;
 }
 
 // After setting gamma, this is used with
 //  CRGB color = CRGB(matrix->gamma[red], matrix->gamma[green], matrix->gamma[blue]);
-void SmartMatrix_GFX::precal_gamma(float gam) {
+void Framebuffer_GFX::precal_gamma(float gam) {
   for (uint8_t i =0; i<255; i++) {
     gamma[i] = applyGamma_video(i, gam);
   }

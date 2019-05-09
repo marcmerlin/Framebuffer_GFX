@@ -18,8 +18,8 @@
   <http://www.gnu.org/licenses/>.
   --------------------------------------------------------------------*/
 
-#ifndef _SMARTMATRIX_GFX_H_
-#define _SMARTMATRIX_GFX_H_
+#ifndef _FRAMEBUFFER_GFX_H_
+#define _FRAMEBUFFER_GFX_H_
 
 #if ARDUINO >= 100
  #include <Arduino.h>
@@ -66,13 +66,13 @@
 #define NEO_TILE_ZIGZAG        0x80 // Tile order reverses between lines
 #define NEO_TILE_SEQUENCE      0x80 // Bitmask for tile line order
 
-class SmartMatrix_GFX : public Adafruit_GFX {
+class Framebuffer_GFX : public Adafruit_GFX {
 
  public:
   // pre-computed gamma table
   uint8_t gamma[256];
 
-  SmartMatrix_GFX(CRGB *, uint8_t w, uint8_t h, void (* showptr)());
+  Framebuffer_GFX(CRGB *, uint8_t w, uint8_t h, void (* showptr)());
 
   int XY(int16_t x, int16_t y); // compat with FastLED code, returns 1D offset
   void
@@ -92,8 +92,11 @@ class SmartMatrix_GFX : public Adafruit_GFX {
   void clear() { fillScreen(0); };
   void show() { _show(); };
 
+  // This is implemented for FastLED in the superclass
+  // For SmartMatrix, brightness is done outside this object
   void setBrightness(int b) { 
-    Serial.println("please call matrixLayer.setBrightness() instead");
+    b = b; // squelch unused warning
+    Serial.println("Not Implemented in Framebuffer::GFX");
   };
 
 
@@ -101,18 +104,19 @@ class SmartMatrix_GFX : public Adafruit_GFX {
   void newLedsPtr(CRGB *);
 
 
- private:
+ protected:
+  uint8_t type, matrixWidth, matrixHeight, tilesX, tilesY;
 
   // Because SmartMatrix uses templates so heavily, its object cannot be passed to us
-  // However the main function can create a show function that copies our data from _leds
+  // However the main function can create a show function that copies our data from _fb
   // into the SmartMatrix object, and pass that function to us by pointer.
   void (* _show)();
 
-  CRGB *_leds;
-  const uint8_t
-    type;
-  const uint8_t
-    matrixWidth, matrixHeight, tilesX, tilesY;
+
+ private:
+
+
+  CRGB *_fb;
   uint16_t
     numpix,
     (*remapFn)(uint16_t x, uint16_t y);
@@ -121,5 +125,5 @@ class SmartMatrix_GFX : public Adafruit_GFX {
   boolean  passThruFlag = false;
 };
 
-#endif // _SMARTMATRIX_GFX_H_
+#endif // _FRAMEBUFFER_GFX_H_
 // vim:sts=2:sw=2
