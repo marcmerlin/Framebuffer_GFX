@@ -86,11 +86,13 @@ class Framebuffer_GFX : public Adafruit_GFX {
     setRemapFunction(uint16_t (*fn)(uint16_t, uint16_t)),
     precal_gamma(float);
 
-  static uint16_t
-    Color(uint8_t r, uint8_t g, uint8_t b);
+  static uint16_t Color(uint8_t r, uint8_t g, uint8_t b);
+  static uint16_t Color24to16(uint32_t color);
+  static uint32_t CRGBtoint32(CRGB color);
 
   void clear() { fillScreen(0); };
-  void show() { _show(); };
+  void show() { if (_show) _show(); else 
+    Serial.println("Cannot run show(), no function pointer, not inherited and shadowed"); };
 
   // This is implemented for FastLED in the superclass
   // For SmartMatrix, brightness is done outside this object
@@ -111,12 +113,12 @@ class Framebuffer_GFX : public Adafruit_GFX {
   // However the main function can create a show function that copies our data from _fb
   // into the SmartMatrix object, and pass that function to us by pointer.
   void (* _show)();
+  CRGB *_fb;
 
 
  private:
 
 
-  CRGB *_fb;
   uint16_t
     numpix,
     (*remapFn)(uint16_t x, uint16_t y);

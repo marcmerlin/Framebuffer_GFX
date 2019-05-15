@@ -97,6 +97,17 @@ uint16_t Framebuffer_GFX::Color(uint8_t r, uint8_t g, uint8_t b) {
                     (b         >> 3);
 }
 
+uint16_t Framebuffer_GFX::Color24to16(uint32_t color) {
+  return ((uint16_t)(((color & 0xFF0000) >> 16) & 0xF8) << 8) |
+         ((uint16_t)(((color & 0x00FF00) >>  8) & 0xFC) << 3) |
+                    (((color & 0x0000FF) >>  0)         >> 3);
+}
+
+uint32_t Framebuffer_GFX::CRGBtoint32(CRGB c) {
+  return c.r*65536+c.g*256+c.b;
+}
+
+
 // Pass-through is a kludge that lets you override the current drawing
 // color with a 'raw' RGB (or RGBW) value that's issued directly to
 // pixel(s), side-stepping the 16-bit color limitation of Adafruit_GFX.
@@ -109,7 +120,7 @@ uint16_t Framebuffer_GFX::Color(uint8_t r, uint8_t g, uint8_t b) {
 
 // Pass raw color value to set/enable passthrough
 void Framebuffer_GFX::setPassThruColor(CRGB c) {
-  passThruColor = c.r*65536+c.g*256+c.b;
+  passThruColor = CRGBtoint32(c);
   passThruFlag  = true;
 }
 
@@ -246,16 +257,28 @@ void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
 void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint32_t color) {
 
+#if 0
+  Serial.print(x);
+  Serial.print(" ");
+  Serial.print(y);
+  Serial.print(" ");
+  Serial.println(color, HEX);
+#endif
   if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
+#if 0
+  Serial.print("Not skipped: ");
+  Serial.print(x);
+  Serial.print(" ");
+  Serial.print(y);
+  Serial.print(" ");
+  Serial.println(color, HEX);
+#endif
 
   _fb[XY(x,y)] = color;
 }
 
 void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, CRGB c) {
-
-  if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
-
-  _fb[XY(x,y)] = c.r*65536+c.g*256+c.b;
+  drawPixel(x, y, CRGBtoint32(c));
 }
 
 
