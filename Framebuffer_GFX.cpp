@@ -54,7 +54,7 @@
 
 #include "FastLED.h"
 
-Framebuffer_GFX::Framebuffer_GFX(CRGB *fb, uint8_t w, uint8_t h, void (* showptr)()): 
+Framebuffer_GFX::Framebuffer_GFX(CRGB *fb, const uint16_t w, const uint16_t h, void (* showptr)()): 
   Adafruit_GFX(w, h), matrixWidth(w), matrixHeight(h), remapFn(NULL){ 
     _fb = fb;
     _show = showptr;

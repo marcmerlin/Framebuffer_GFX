@@ -72,7 +72,7 @@ class Framebuffer_GFX : public Adafruit_GFX {
   // pre-computed gamma table
   uint8_t gamma[256];
 
-  Framebuffer_GFX(CRGB *, uint8_t w, uint8_t h, void (* showptr)());
+  Framebuffer_GFX(CRGB *, const uint16_t w, const uint16_t h, void (* showptr)());
 
   int XY(int16_t x, int16_t y); // compat with FastLED code, returns 1D offset
   void
