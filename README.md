@@ -20,6 +20,38 @@ It depends on these base libraries:
 - https://github.com/marcmerlin/LEDMatrix (this one is optional)
 
 
+Adafruit::GFX vs FastLED vs LEDMatrix APIs
+------------------------------------------
+Years ago, back when we only had 8x8 displays, Adafruit wrote a nice API, https://github.com/adafruit/Adafruit-GFX-Library .  
+It is in no means perfect or exhaustive, but it does what most people need,
+including font support. Its huge strength is how it works many different
+hardware backends, all the way back to 8x8 matrices. See this example of code
+working on 3 different hardware backends all using the same GFX demo code:
+http://marc.merlins.org/perso/arduino/post_2017-04-24_Adafruit-GFX-on-NeoMatrix-and-RGB-Matrix-Panel-Demo.html 
+https://www.youtube.com/watch?tv=9yGZLtewmfI
+
+Here is an example of my same code on multiple GFX backends:
+- https://github.com/marcmerlin/LED-Matrix/blob/master/examples/directmatrix8x8_tricolor_direct_sr/directmatrix8x8_tricolor_direct_sr.ino
+- https://github.com/adafruit/Adafruit_NeoMatrix/tree/master/examples/MatrixGFXDemo
+- https://github.com/adafruit/RGB-matrix-Panel/blob/master/examples/PanelGFXDemo_16x32/PanelGFXDemo_16x32.ino 
+- https://github.com/marcmerlin/FastLED_NeoMatrix/tree/master/examples/MatrixGFXDemo
+- https://github.com/mrfaptastic/ESP32-RGB64x32MatrixPanel-I2S-DMA/blob/master/examples/PanelGFXDemo/PanelGFXDemo.ino
+- https://github.com/marcmerlin/SmartMatrix_GFX/tree/master/examples/MatrixGFXDemo
+- https://github.com/marcmerlin/Adafruit-SSD1331-OLED-Driver-Library-for-Arduino/tree/master/examples/LCDGFXDemo
+
+Now Adafruit::GFX has a drawback nowadays which is how it only supports color in 16 bits (RGB 565).  
+Honestly it is good enough for most displays that aren't good enough to show 16,777,216 colors, and 
+if you care, there is a bypass to drawPixel that lets you draw in 24bit color (see below)
+
+FastLED supports 24bit color natively. It is not a 2D API per se, but used along with
+https://github.com/marcmerlin/FastLED_NeoMatrix you can get GFX API support
+while adding FastLED primitives like nscale and fade.  
+There is also FastLED 2D demo code written with just FastLED primitives and an XY() function to turn 2D coordinates into FastLED 1D array indexes, see https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/FastLED for examples
+
+LEDMatrix is a library that predates FastLED::NeoMatrix . It offers a GFX like API with a few extras, as well as sprites and font libraries. See https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/LEDMatrix/LEDSprites-Pacman for a sprites example.  One of its drawbacks is that its layout for multiple tiled matrices, layout is complicated and FastLED::NeoMatrix is much simpler to use.
+
+
+
 Color Management
 ----------------
 This code was originally based on Adafruit::NeoMatrix although it evolved a fair
@@ -39,12 +71,13 @@ There are conversion functions between these color formats:
 You can learn more about how to use the GFX API by going to https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library as well as https://learn.adafruit.com/adafruit-gfx-graphics-library/graphics-primitives but keep in mind that this library offers 
 
 
+
 Driver backends that use this library base class
 ------------------------------------------------
 This is a base class, offering support for these drivers:
 - https://github.com/marcmerlin/FastLED_NeoMatrix/
 - https://github.com/marcmerlin/SmartMatrix_GFX/
-- https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331 and ILI3941 TFTs)
+- https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331 and ILI9341 TFTs)
 
 See the above libraries for example code, and more specifically this repository of example code that works on all these backends:  
 https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos
