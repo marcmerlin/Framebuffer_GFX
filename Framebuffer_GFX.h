@@ -66,6 +66,13 @@
 #define NEO_TILE_ZIGZAG        0x80 // Tile order reverses between lines
 #define NEO_TILE_SEQUENCE      0x80 // Bitmask for tile line order
 
+// used for show_free_mem
+#ifdef ESP8266
+    extern "C" { 
+#include "user_interface.h"
+}
+#endif
+
 class Framebuffer_GFX : public Adafruit_GFX {
 
  public:
@@ -101,9 +108,22 @@ class Framebuffer_GFX : public Adafruit_GFX {
     Serial.println("Not Implemented in Framebuffer::GFX");
   };
 
-
   void begin();
   void newLedsPtr(CRGB *);
+
+  static void show_free_mem(char *pre=NULL) {
+    if (pre) {
+      Serial.print(pre);
+      Serial.print(": ");
+    }
+#ifdef ESP8266
+    Serial.print( F("Heap Memory Available: ") ); Serial.println(system_get_free_heap_size());
+#endif
+#ifdef ESP32
+    printf("Heap/32-bit Memory Available: %6d bytes total, %6d bytes largest free block\n", heap_caps_get_free_size(0), heap_caps_get_largest_free_block(0));
+    printf("8-bit/DMA Memory Available  : %6d bytes total, %6d bytes largest free block\n", heap_caps_get_free_size(MALLOC_CAP_DMA), heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+#endif
+   }
 
 
  protected:
