@@ -102,7 +102,7 @@ class Framebuffer_GFX : public Adafruit_GFX {
   };
 
 
-  void begin(); // no-op in this lib, left for compat
+  void begin();
   void newLedsPtr(CRGB *);
 
 

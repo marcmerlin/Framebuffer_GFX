@@ -67,7 +67,11 @@ Framebuffer_GFX::Framebuffer_GFX(CRGB *fb, const uint16_t w, const uint16_t h, v
   }
 
 void Framebuffer_GFX::begin() {
-  Serial.print("Framebuffer_GFX::begin Num Pixels: ");
+  Serial.print("Framebuffer_GFX::begin Width: ");
+  Serial.print(matrixWidth);
+  Serial.print(" Height: ");
+  Serial.print(matrixHeight);
+  Serial.print(" Num Pixels: ");
   Serial.println(numpix);
 #if 0
   Serial.println(matrixWidth);
