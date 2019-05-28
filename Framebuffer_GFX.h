@@ -122,15 +122,15 @@ class Framebuffer_GFX : public Adafruit_GFX {
 #ifdef ESP32
     Serial.print("Heap/32-bit Memory Available: ");
     Serial.print(heap_caps_get_free_size(0));
-    Serial.print("bytes total, ");
+    Serial.print(" bytes total, ");
     Serial.print(heap_caps_get_largest_free_block(0));
-    Serial.println("bytes largest free block");
+    Serial.println(" bytes largest free block");
 
     Serial.print("8-bit/DMA Memory Available  : ");
     Serial.print(heap_caps_get_free_size(MALLOC_CAP_DMA));
-    Serial.print("bytes total, ");
+    Serial.print(" bytes total, ");
     Serial.print(heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
-    Serial.println("bytes largest free block");
+    Serial.println(" bytes largest free block");
 #endif
    }
 
