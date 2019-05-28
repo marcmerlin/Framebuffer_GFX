@@ -20,6 +20,22 @@ It depends on these base libraries:
 - https://github.com/marcmerlin/LEDMatrix (this one is optional)
 
 
+Driver backends that use this library base class
+------------------------------------------------
+This is a base class, offering support for these drivers:
+- https://github.com/marcmerlin/FastLED_NeoMatrix/
+- https://github.com/marcmerlin/SmartMatrix_GFX/
+- https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331 and ILI9341 TFTs)
+
+See the above libraries for example code, and more specifically this repository of example code that works on all these backends:  
+https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos
+
+Here is an example of code ultimately running on top of Framebuffer::GFX via FastLED::NeoMatrix on ESP8266 (24x32 and 32x32) and SmartMatrix::GFX on ESP32 (64x96):
+![image](https://user-images.githubusercontent.com/1369412/58442553-03999e80-80a1-11e9-9b79-3b0d438a977e.png)
+Below is the same code again now running on top of FastLED_SPITFT::GFX on an SSD1331 96x64 TFT screen:
+![image](https://user-images.githubusercontent.com/1369412/58442556-072d2580-80a1-11e9-9cc6-56c5126be20d.png)
+
+
 Adafruit::GFX vs FastLED vs LEDMatrix APIs
 ------------------------------------------
 Years ago, back when we only had 8x8 displays, Adafruit wrote a nice API, https://github.com/adafruit/Adafruit-GFX-Library .  
@@ -51,7 +67,6 @@ There is also FastLED 2D demo code written with just FastLED primitives and an X
 LEDMatrix is a library that predates FastLED::NeoMatrix . It offers a GFX like API with a few extras, as well as sprites and font libraries. See https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/LEDMatrix/LEDSprites-Pacman for a sprites example.  One of its drawbacks is that its layout for multiple tiled matrices, layout is complicated and FastLED::NeoMatrix is much simpler to use.
 
 
-
 Color Management
 ----------------
 This code was originally based on Adafruit::NeoMatrix although it evolved a fair
@@ -69,15 +84,3 @@ There are conversion functions between these color formats:
   using GFX functions that only take RGB565. Make sure to call setPassThruColor() when done.
 
 You can learn more about how to use the GFX API by going to https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library as well as https://learn.adafruit.com/adafruit-gfx-graphics-library/graphics-primitives but keep in mind that this library offers 
-
-
-
-Driver backends that use this library base class
-------------------------------------------------
-This is a base class, offering support for these drivers:
-- https://github.com/marcmerlin/FastLED_NeoMatrix/
-- https://github.com/marcmerlin/SmartMatrix_GFX/
-- https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331 and ILI9341 TFTs)
-
-See the above libraries for example code, and more specifically this repository of example code that works on all these backends:  
-https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos
