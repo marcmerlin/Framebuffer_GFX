@@ -111,7 +111,7 @@ class Framebuffer_GFX : public Adafruit_GFX {
   void begin();
   void newLedsPtr(CRGB *);
 
-  static void show_free_mem(char *pre=NULL) {
+  static void show_free_mem(const char *pre=NULL) {
     if (pre) {
       Serial.print(pre);
       Serial.print(": ");
@@ -136,7 +136,8 @@ class Framebuffer_GFX : public Adafruit_GFX {
 
 
  protected:
-  uint8_t type, matrixWidth, matrixHeight, tilesX, tilesY;
+  uint8_t type, tilesX, tilesY;
+  uint16_t matrixWidth, matrixHeight;
 
   // Because SmartMatrix uses templates so heavily, its object cannot be passed to us
   // However the main function can create a show function that copies our data from _fb
@@ -148,10 +149,8 @@ class Framebuffer_GFX : public Adafruit_GFX {
  private:
 
 
-  uint16_t
-    numpix,
-    (*remapFn)(uint16_t x, uint16_t y);
-
+  uint16_t (*remapFn)(uint16_t x, uint16_t y);
+  uint32_t numpix;
   uint32_t passThruColor;
   boolean  passThruFlag = false;
 };

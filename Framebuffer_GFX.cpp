@@ -290,7 +290,7 @@ void Framebuffer_GFX::fillScreen(uint16_t color) {
   uint32_t c;
 
   c = passThruFlag ? passThruColor : expandColor(color);
-  for (uint16_t i=0; i<numpix; i++) { _fb[i]=c; }
+  for (uint32_t i=0; i<numpix; i++) { _fb[i]=c; }
 }
 
 void Framebuffer_GFX::setRemapFunction(uint16_t (*fn)(uint16_t, uint16_t)) {
