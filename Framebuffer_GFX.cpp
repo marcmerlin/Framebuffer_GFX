@@ -300,7 +300,7 @@ void Framebuffer_GFX::setRemapFunction(uint16_t (*fn)(uint16_t, uint16_t)) {
 // After setting gamma, this is used with
 //  CRGB color = CRGB(matrix->gamma[red], matrix->gamma[green], matrix->gamma[blue]);
 void Framebuffer_GFX::precal_gamma(float gam) {
-  for (uint8_t i =0; i<255; i++) {
+  for (uint16_t i = 0; i<=255; i++) {
     gamma[i] = applyGamma_video(i, gam);
   }
 }
