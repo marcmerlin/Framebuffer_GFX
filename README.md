@@ -1,5 +1,5 @@
-Framebuffer::GFX, FastLED's CRGB Backed Framebuffer
-===================================================
+Framebuffer::GFX: FastLED CRGB Backed Framebuffer
+=================================================
 
 How to use this library
 -----------------------
@@ -25,7 +25,7 @@ Driver backends that use this library base class
 This is a base class, offering support for these drivers:
 - https://github.com/marcmerlin/FastLED_NeoMatrix/
 - https://github.com/marcmerlin/SmartMatrix_GFX/
-- https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331 and ILI9341 TFTs)
+- https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331, ILI9341, and ST7735 TFTs)
 
 See the above libraries for example code, and more specifically this repository of example code that works on all these backends:  
 https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos
