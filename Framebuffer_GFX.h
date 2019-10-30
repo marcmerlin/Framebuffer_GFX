@@ -93,6 +93,7 @@ class Framebuffer_GFX : public Adafruit_GFX {
     setRemapFunction(uint16_t (*fn)(uint16_t, uint16_t)),
     precal_gamma(float);
 
+  static uint32_t expandColor(uint16_t color);
   static uint16_t Color(uint8_t r, uint8_t g, uint8_t b);
   static uint16_t Color24to16(uint32_t color);
   static uint32_t CRGBtoint32(CRGB color);

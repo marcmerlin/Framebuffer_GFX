@@ -88,7 +88,7 @@ void Framebuffer_GFX::newLedsPtr(CRGB *new_fb_ptr) {
 
 // Expand 16-bit input color (Adafruit_GFX colorspace) to 24-bit (NeoPixel)
 // (w/gamma adjustment)
-static uint32_t expandColor(uint16_t color) {
+uint32_t Framebuffer_GFX::expandColor(uint16_t color) {
   return ((uint32_t)pgm_read_byte(&gamma5[ color >> 11       ]) << 16) |
          ((uint32_t)pgm_read_byte(&gamma6[(color >> 5) & 0x3F]) <<  8) |
                     pgm_read_byte(&gamma5[ color       & 0x1F]);
