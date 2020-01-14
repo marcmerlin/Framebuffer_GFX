@@ -26,6 +26,7 @@ This is a base class, offering support for these drivers:
 - https://github.com/marcmerlin/FastLED_NeoMatrix/
 - https://github.com/marcmerlin/SmartMatrix_GFX/
 - https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331, ILI9341, and ST7735 TFTs)
+- https://github.com/marcmerlin/FastLED_RPIRGBPanel_GFX (Glue driver for https://github.com/marcmerlin/ArduinoOnPc-FastLED-GFX-LEDMatrix/ that allows displaying a matrix on RGBPanels using https://github.com/hzeller/rpi-rgb-led-matrix )
 - https://github.com/marcmerlin/FastLED_TFTWrapper_GFX (Emulate a TFT screen on linux for https://github.com/marcmerlin/ArduinoOnPc-FastLED-GFX-LEDMatrix/ )
 - https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/blob/022257656e2f1beabe327e88bb96747c0fc955f9/neomatrix_config.h#L792 (FastLED emulation on linux/SDL)
 
