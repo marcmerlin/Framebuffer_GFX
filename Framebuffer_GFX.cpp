@@ -86,6 +86,14 @@ void Framebuffer_GFX::newLedsPtr(CRGB *new_fb_ptr) {
   _fb = new_fb_ptr;
 }
 
+#if 0
+// writeme
+void Framebuffer_GFX::showfps() {
+  static uint32_t time_last = 0;
+  uint32_t time_now = millis();
+}
+#endif
+
 // Expand 16-bit input color (Adafruit_GFX colorspace) to 24-bit (NeoPixel)
 // (w/gamma adjustment)
 uint32_t Framebuffer_GFX::expandColor(uint16_t color) {

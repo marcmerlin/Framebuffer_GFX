@@ -99,12 +99,13 @@ class Framebuffer_GFX : public Adafruit_GFX {
   static uint32_t CRGBtoint32(CRGB color);
 
   void clear() { fillScreen(0); };
+  void showfps();
   void show() { if (_show) _show(); else 
     Serial.println("Cannot run show(), no function pointer, not inherited and shadowed"); };
 
   // This is implemented for FastLED in the superclass
   // For SmartMatrix, brightness is done outside this object
-  void setBrightness(int b) { 
+  void setBrightness(int b) {
     b = b; // squelch unused warning
     Serial.println("Not Implemented in Framebuffer::GFX");
   };
@@ -114,24 +115,32 @@ class Framebuffer_GFX : public Adafruit_GFX {
 
   static void show_free_mem(const char *pre=NULL) {
     if (pre) {
-      Serial.print(pre);
-      Serial.print(": ");
+      Serial.println(pre);
     }
 #ifdef ESP8266
     Serial.print( F("Heap Memory Available: ") ); Serial.println(system_get_free_heap_size());
 #endif
 #ifdef ESP32
-    Serial.print("Heap/32-bit Memory Available: ");
-    Serial.print(heap_caps_get_free_size(0));
+    Serial.print("Heap/32-bit Memory Available     : ");
+    Serial.print(heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     Serial.print(" bytes total, ");
-    Serial.print(heap_caps_get_largest_free_block(0));
+    Serial.print(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     Serial.println(" bytes largest free block");
 
-    Serial.print("8-bit/DMA Memory Available  : ");
+    Serial.print("8-bit/malloc/DMA Memory Available: ");
     Serial.print(heap_caps_get_free_size(MALLOC_CAP_DMA));
     Serial.print(" bytes total, ");
     Serial.print(heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
     Serial.println(" bytes largest free block");
+
+    // https://thingpulse.com/esp32-how-to-use-psram/
+#ifdef BOARD_HAS_PSRAM
+    Serial.print("Total PSRAM used: ");
+    Serial.print(ESP.getPsramSize() - ESP.getFreePsram());
+    Serial.print(" bytes total, ");
+    Serial.print(ESP.getFreePsram());
+    Serial.println(" PSRAM bytes free");
+#endif
 #endif
    }
 
@@ -145,7 +154,6 @@ class Framebuffer_GFX : public Adafruit_GFX {
   // into the SmartMatrix object, and pass that function to us by pointer.
   void (* _show)();
   CRGB *_fb;
-
 
  private:
 
