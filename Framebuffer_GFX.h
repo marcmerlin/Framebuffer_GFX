@@ -156,8 +156,6 @@ class Framebuffer_GFX : public Adafruit_GFX {
   CRGB *_fb;
 
  private:
-
-
   uint16_t (*remapFn)(uint16_t x, uint16_t y);
   uint32_t numpix;
   uint32_t passThruColor;
