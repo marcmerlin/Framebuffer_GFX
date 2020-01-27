@@ -34,10 +34,6 @@
   <http://www.gnu.org/licenses/>.
   -------------------------------------------------------------------------*/
 
-#ifndef FPSFREQ
-#define FPSFREQ 3000
-#endif
-
 #include <Adafruit_GFX.h>
 #include <Framebuffer_GFX.h>
 #include "gamma.h"
@@ -95,15 +91,14 @@ void Framebuffer_GFX::showfps() {
   static uint32_t last_framecount = 0;
   static uint32_t framecount = 0;
   uint32_t time_now = millis();
-    //Serial.println(FPSFREQ);
-  if (!FPSFREQ) return;
+  if (!fpsfreq) return;
 
   framecount++;
 
-  if (time_now - time_last > FPSFREQ) {
+  if (time_now - time_last > fpsfreq) {
     time_last = time_now;
     Serial.print("FrameBuffer::GFX ");
-    Serial.print((framecount - last_framecount) / (FPSFREQ/1000));
+    Serial.print((framecount - last_framecount) / (fpsfreq/1000));
     Serial.println("fps");
     last_framecount = framecount;
   }

@@ -66,6 +66,10 @@
 #define NEO_TILE_ZIGZAG        0x80 // Tile order reverses between lines
 #define NEO_TILE_SEQUENCE      0x80 // Bitmask for tile line order
 
+#ifndef FPSFREQ
+#define FPSFREQ 10000
+#endif
+
 // used for show_free_mem
 #ifdef ESP8266
     extern "C" { 
@@ -112,6 +116,7 @@ class Framebuffer_GFX : public Adafruit_GFX {
 
   void begin();
   void newLedsPtr(CRGB *);
+  void setfpsfreq(uint16_t _fpsfreq) { fpsfreq = _fpsfreq; };
 
   static void show_free_mem(const char *pre=NULL) {
     if (pre) {
@@ -148,6 +153,7 @@ class Framebuffer_GFX : public Adafruit_GFX {
  protected:
   uint8_t type, tilesX, tilesY;
   uint16_t matrixWidth, matrixHeight;
+  uint16_t fpsfreq = FPSFREQ;
 
   // Because SmartMatrix uses templates so heavily, its object cannot be passed to us
   // However the main function can create a show function that copies our data from _fb
