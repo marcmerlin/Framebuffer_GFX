@@ -1,6 +1,25 @@
 Framebuffer::GFX: FastLED CRGB Backed Framebuffer
 =================================================
 
+How FrameBuffer::GFX fits and the glue drivers I wrote
+------------------------------------------------------
+I used all the low level drivers on the left, wrote all the glue drivers in the middle, and FrameBuffer::GFX
+```
+Low Level Drv|Glue Driver for FrameBuffer::GFX
+FastLED     - FastLED_NeoMatrix  -------------\     FastLED CRGB Array 
+SmartMatrix - SmartMatrix_GFX -----------------\    24bit FB storage        API Support
+ILI9341 \                                       \   CRGB methods like
+SSD1331  |--- FastLED_SPITFT_GFX ----------------\  scale8/fadeToBlackBy   ,FastLED API
+ST7735  /                                         |        |              / (XY 2D to 1D mapping)
+                                                  |        |             /
+ArduinoOnPc-FastLED-GFX-LEDMatrix arduino         - FrameBuffer::GFX------ Adafruit::NeoMatrix +
+emulation for linux / Raspberry Pi:               |        |             \ Adafruit::GFX APIs
+----------------------------------               /    Adafruit::GFX       \ 
+rpi-rgb-led-matrix - FastLED_RPIRGBPanel_GFX ---/   LEDMatrix (optional)   `LEDMatrix API
+ArduinoOnPC X11/linux - FastLED_TFTWrapper_GFX /
+FastLED_SDL (linux)   -  FastLED_NeoMatrix   -/                        
+```
+
 How to use this library
 -----------------------
 Framebuffer::GFX does not drive any hardware directly, but it is used by other
@@ -35,9 +54,12 @@ https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos
 
 Here is an example of code ultimately running on top of Framebuffer::GFX via FastLED::NeoMatrix on ESP8266 (24x32 and 32x32) and SmartMatrix::GFX on ESP32 (64x96):
 ![image](https://user-images.githubusercontent.com/1369412/58442553-03999e80-80a1-11e9-9b79-3b0d438a977e.png)
+
 Below is the same code again now running on top of FastLED_SPITFT::GFX on an SSD1331 96x64 TFT screen:
 ![image](https://user-images.githubusercontent.com/1369412/58442556-072d2580-80a1-11e9-9cc6-56c5126be20d.png)
 
+And another example of still the same code running on top of FastLED_RPIRGBPanel_GFX + hzeller/rpi-rgb-led-matrix on a 384x192 RGBPanel display run by a Raspberry Pi with ArduinoOnPc-FastLED-GFX-LEDMatrix:
+![dsc05123](https://user-images.githubusercontent.com/1369412/76477144-a49fde80-63c1-11ea-82c8-86e5f61dfecd.jpg)
 
 Adafruit::GFX vs FastLED vs LEDMatrix APIs
 ------------------------------------------
