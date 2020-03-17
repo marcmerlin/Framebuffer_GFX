@@ -1,5 +1,7 @@
 Framebuffer::GFX: FastLED CRGB Backed Framebuffer
 =================================================
+Below is a summary of how things work, but you'll find more details on this post: http://marc.merlins.org/perso/arduino/post_2020-03-16_Framebuffer_GFX_-Choosing-between-its-3-2D-APIs_-FastLED-XY_-NeoMatrix_-and-LEDMatrix_-and-detail-of-its-many-supported-hardware-backends.html
+
 
 How FrameBuffer::GFX fits and the glue drivers I wrote
 ------------------------------------------------------
