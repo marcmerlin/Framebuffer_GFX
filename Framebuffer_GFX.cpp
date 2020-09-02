@@ -86,14 +86,15 @@ void Framebuffer_GFX::newLedsPtr(CRGB *new_fb_ptr) {
   _fb = new_fb_ptr;
 }
 
+// Change frequency, or turn off with setfpsfreq
 void Framebuffer_GFX::showfps() {
   static uint32_t time_last = 0;
   static uint32_t last_framecount = 0;
-  static uint32_t framecount = 0;
   uint32_t time_now = millis();
-  if (!fpsfreq) return;
 
   framecount++;
+
+  if (!fpsfreq) return;
 
   if (time_now - time_last > fpsfreq) {
     time_last = time_now;
@@ -102,6 +103,21 @@ void Framebuffer_GFX::showfps() {
     Serial.println("fps");
     last_framecount = framecount;
   }
+}
+
+uint32_t Framebuffer_GFX::fps() {
+  static uint32_t time_last = 0;
+  static uint32_t last_framecount = 0;
+  static uint32_t fps = 0;
+  uint32_t time_now = millis();
+
+  // Can't divide by 0, return the last value computed
+  if (time_now == time_last) return fps;
+
+  fps = 1000 * (framecount - last_framecount) / (time_now - time_last);
+  time_last = time_now;
+  last_framecount = framecount;
+  return fps;
 }
 
 // Expand 16-bit input color (Adafruit_GFX colorspace) to 24-bit (NeoPixel)
