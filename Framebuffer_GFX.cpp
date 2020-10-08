@@ -149,7 +149,7 @@ uint16_t Framebuffer_GFX::Color24to16(uint32_t color) {
 }
 
 uint32_t Framebuffer_GFX::CRGBtoint32(CRGB c) {
-  return c.r*65536+c.g*256+c.b;
+  return c.r*(uint32_t)65536+c.g*(uint32_t)256+c.b;
 }
 
 
