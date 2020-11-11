@@ -22,6 +22,27 @@ ArduinoOnPC X11/linux - FastLED_TFTWrapper_GFX /
 FastLED_SDL (linux)   -  FastLED_NeoMatrix   -/                        
 ```
 
+
+Color Management and Adafruit::GFX
+----------------------------------
+This code was originally based on Adafruit::NeoMatrix although it evolved a fair
+amount before becoming what it is now. Namely it tries to work with 24bit colors
+and accepts them in uint32_t format, FastLED::CRGB struct format, and 
+Adafruit::GFX RGB565 format which is upconverted to its native RGB888 format.
+
+There are conversion functions between these color formats:
+- Color(r, g, b) creates an RGB565 (used for Adafruit::GFX draw functions)
+- Color24to16 does the same but takes an RGB888 in uint32_t
+- CRGBtoint32 turns a FastLED::CRGB struct into a RGB888 uint32_t
+- drawPixel can take either RGB65, RGB888, or CRGB. Make sure you give it "(uint32_t) 0"
+  instead of "0" so that it knows which version to use.
+- setPassThruColor also takes all CRGB or uint32 (0xRRGGBB) and allows forcing a 24bit color when
+  using GFX functions that only take RGB565. Make sure to call setPassThruColor() to undo that
+  override when done. I fyou are happy with 16bit color, RGB565 built with matrix->Color(r,g,b)
+  then you do not need setPassThruColor.
+
+You can learn more about how to use the GFX API by going to https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library as well as https://learn.adafruit.com/adafruit-gfx-graphics-library/graphics-primitives but keep in mind that this library offers 
+
 How to use this library
 -----------------------
 Framebuffer::GFX does not drive any hardware directly, but it is used by other
@@ -92,22 +113,3 @@ while adding FastLED primitives like nscale and fade.
 There is also FastLED 2D demo code written with just FastLED primitives and an XY() function to turn 2D coordinates into FastLED 1D array indexes, see https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/FastLED for examples
 
 LEDMatrix is a library that predates FastLED::NeoMatrix . It offers a GFX like API with a few extras, as well as sprites and font libraries. See https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/LEDMatrix/LEDSprites-Pacman for a sprites example.  One of its drawbacks is that its layout for multiple tiled matrices, layout is complicated and FastLED::NeoMatrix is much simpler to use.
-
-
-Color Management
-----------------
-This code was originally based on Adafruit::NeoMatrix although it evolved a fair
-amount before becoming what it is now. Namely it tries to work with 24bit colors
-and accepts them in uint32_t format, FastLED::CRGB struct format, and 
-Adafruit::GFX RGB565 format which is upconverted to its native RGB888 format.
-
-There are conversion functions between these color formats:
-- Color(r, g, b) creates an RGB565 (used for Adafruit::GFX draw functions)
-- Color24to16 does the same but takes an RGB888 in uint32_t
-- CRGBtoint32 turns a FastLED::CRGB struct into a RGB888 uint32_t
-- drawPixel can take either RGB65, RGB888, or CRGB. Make sure you give it "(uint32_t) 0"
-  instead of "0" so that it knows which version to use.
-- setPassThruColor also takes all 3 color formats and allows forcing a 24bit color when
-  using GFX functions that only take RGB565. Make sure to call setPassThruColor() when done.
-
-You can learn more about how to use the GFX API by going to https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library as well as https://learn.adafruit.com/adafruit-gfx-graphics-library/graphics-primitives but keep in mind that this library offers 
