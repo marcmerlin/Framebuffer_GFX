@@ -84,6 +84,28 @@ Below is the same code again now running on top of FastLED_SPITFT::GFX on an SSD
 And another example of still the same code running on top of FastLED_RPIRGBPanel_GFX + hzeller/rpi-rgb-led-matrix on a 384x192 RGBPanel display run by a Raspberry Pi with ArduinoOnPc-FastLED-GFX-LEDMatrix:
 ![dsc05123](https://user-images.githubusercontent.com/1369412/76477144-a49fde80-63c1-11ea-82c8-86e5f61dfecd.jpg)
 
+Custom X/Y Mapping for Irregular Arrays
+---------------------------------------
+This library reuses the neomatrix mapping from adafruit:
+![image](https://user-images.githubusercontent.com/1369412/103467198-74834c80-4d01-11eb-8eaa-19b798a6599e.png)
+See https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library for how this works when you have tiled matrices.
+
+Now if you have an irregular mapping, you can write your own myRampFn see the fancy example in https://github.com/marcmerlin/FastLED_NeoMatrix/issues/6  
+This allows you to make mapping like this one (not that the count is off by one, the first pixel is 0, not 1).
+```
+//    .0 .1 .2 .3 .4 .5 .6 .7 .8 .9 10 11.12 13 14 15 16 17 18 19 20 21 22 23 24
+// 0  .. .1 .2 .3 .. .. .. 22 23 24 .. .. .. .. .. 43 44 45 .. .. .. 64 65 66 ..
+// 1  18 .. .. .. .4 .. 39 .. .. .. 25 .. .. .. 60 .. .. .. 46 .. 81 .. .. .. 67
+// 2  17 .. .. .. .5 .. 38 .. .. .. 26 .. 85 .. 59 .. .. .. 47 .. 80 .. .. .. 68
+// 3  16 .. .. .. .6 .. 37 .. .. .. 27 .. .. .. 58 .. .. .. 48 .. 79 .. .. .. 69
+// 4  .. 19 20 21 .. .. .. 40 41 42 .. .. .. .. .. 61 62 63 .. .. .. 82 83 84 ..
+// 5  15 .. .. .. .7 .. 36 .. .. .. 28 .. .. .. 57 .. .. .. 49 .. 78 .. .. .. 70
+// 6  14 .. .. .. .8 .. 35 .. .. .. 29 .. 86 .. 56 .. .. .. 50 .. 77 .. .. .. 71
+// 7  13 .. .. .. .9 .. 34 .. .. .. 30 .. .. .. 55 .. .. .. 51 .. 76 .. .. .. 72
+// 8  .. 12 11 10 .. .. .. 33 32 31 .. .. .. .. .. 54 53 52 .. .. .. 75 74 73 ..
+```
+
+
 Adafruit::GFX vs FastLED vs LEDMatrix APIs
 ------------------------------------------
 Years ago, back when we only had 8x8 displays, Adafruit wrote a nice API, https://github.com/adafruit/Adafruit-GFX-Library .  
