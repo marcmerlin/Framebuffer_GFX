@@ -297,7 +297,9 @@ void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
   if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-  _fb[XY(x,y)] = passThruFlag ? passThruColor : expandColor(color);
+  uint32_t idx = XY(x,y);
+  if (idx<0 || idx>numpix) return;
+  _fb[idx] = passThruFlag ? passThruColor : expandColor(color);
 }
 
 void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint32_t color) {
