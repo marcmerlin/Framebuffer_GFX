@@ -297,8 +297,8 @@ void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
   if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-  uint32_t idx = XY(x,y);
-  if (idx<0 || idx>numpix) return;
+  int32_t idx = XY(x,y);
+  if (idx<0 || idx>(int32_t)numpix) return;
   _fb[idx] = passThruFlag ? passThruColor : expandColor(color);
 }
 
@@ -321,7 +321,9 @@ void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, uint32_t color) {
   Serial.println(color, HEX);
 #endif
 
-  _fb[XY(x,y)] = color;
+  int32_t idx = XY(x,y);
+  if (idx<0 || idx>(int32_t)numpix) return;
+  _fb[idx] = color;
 }
 
 void Framebuffer_GFX::drawPixel(int16_t x, int16_t y, CRGB c) {
