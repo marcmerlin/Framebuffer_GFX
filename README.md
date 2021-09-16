@@ -36,7 +36,7 @@ There are conversion functions between these color formats:
 - CRGBtoint32 turns a FastLED::CRGB struct into a RGB888 uint32_t
 - drawPixel can take either RGB65, RGB888, or CRGB. Make sure you give it "(uint32_t) 0"
   instead of "0" so that it knows which version to use.
-- setPassThruColor also takes all CRGB or uint32 (0xRRGGBB) and allows forcing a 24bit color when
+- setPassThruColor also takes a CRGB or uint32 (0xRRGGBB) and allows forcing a 24bit color when
   using GFX functions that only take RGB565. Make sure to call setPassThruColor() to undo that
   override when done. I fyou are happy with 16bit color, RGB565 built with matrix->Color(r,g,b)
   then you do not need setPassThruColor.
