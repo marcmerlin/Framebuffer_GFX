@@ -91,7 +91,7 @@ This library reuses the neomatrix mapping from adafruit:
 See https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library for how this works when you have tiled matrices.
 
 Now if you have an irregular mapping, you can write your own myRemapFn see the fancy example in https://github.com/marcmerlin/FastLED_NeoMatrix/issues/6  
-This allows you to make mapping like this one (not that the count is off by one, the first pixel is 0, not 1).
+This allows you to make mapping like this one (note that the count is off by one, the first pixel is 0, not 1).
 ```
 //    .0 .1 .2 .3 .4 .5 .6 .7 .8 .9 10 11.12 13 14 15 16 17 18 19 20 21 22 23 24
 // 0  .. .1 .2 .3 .. .. .. 22 23 24 .. .. .. .. .. 43 44 45 .. .. .. 64 65 66 ..
