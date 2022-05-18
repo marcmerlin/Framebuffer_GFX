@@ -37,9 +37,10 @@ There are conversion functions between these color formats:
 - CRGBtoint32 turns a FastLED::CRGB struct into a RGB888 uint32_t
 - drawPixel can take either RGB65, RGB888, or CRGB. Make sure you give it "(uint32_t) 0"
   instead of "0" so that it knows which version to use.
+- To send an RGB888 from 3 variables, you can send (uint32_t) (R<<16 + G<<8 + B)
 - setPassThruColor also takes a CRGB or uint32 (0xRRGGBB) and allows forcing a 24bit color when
   using GFX functions that only take RGB565. Make sure to call setPassThruColor() to undo that
-  override when done. I fyou are happy with 16bit color, RGB565 built with matrix->Color(r,g,b)
+  override when done. If you are happy with 16bit color, RGB565 built with matrix->Color(r,g,b)
   then you do not need setPassThruColor.
 
 You can learn more about how to use the GFX API by going to https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library as well as https://learn.adafruit.com/adafruit-gfx-graphics-library/graphics-primitives but keep in mind that this library offers 
@@ -128,7 +129,7 @@ Here is an example of my same code on multiple GFX backends:
 
 Now Adafruit::GFX has a drawback nowadays which is how it only supports color in 16 bits (RGB 565).  
 Honestly it is good enough for most displays that aren't good enough to show 16,777,216 colors, and 
-if you care, there is a bypass to drawPixel that lets you draw in 24bit color (see below)
+if you care, there is a bypass to drawPixel that lets you draw in 24bit color (see above)
 
 FastLED supports 24bit color natively. It is not a 2D API per se, but used along with
 https://github.com/marcmerlin/FastLED_NeoMatrix you can get GFX API support
