@@ -9,6 +9,8 @@ I used all the low level drivers on the left, wrote all the glue drivers in the 
 ```
 Low Level Drv|Glue Driver for FrameBuffer::GFX
 FastLED     - FastLED_NeoMatrix  -------------\     FastLED CRGB Array 
+ESP32-HUB75-MatrixPanel -,                      |
+FastLED_ESP32-HUB75-MatrixPanel_FrameBuffer_GFX
 SmartMatrix - SmartMatrix_GFX -----------------\    24bit FB storage        API Support
                                                 \   CRGB methods like
 AF:ILI9341-\                                     \  scale8/fadeToBlackBy
@@ -21,7 +23,7 @@ emulation for linux / Raspberry Pi:               |        |       
 ----------------------------------               /    Adafruit::GFX       \ 
 rpi-rgb-led-matrix - FastLED_RPIRGBPanel_GFX ---/   LEDMatrix (optional)   `LEDMatrix API
 ArduinoOnPC X11/linux - FastLED_TFTWrapper_GFX /
-FastLED_SDL (linux)   -  FastLED_NeoMatrix   -/                    
+FastLED_SDL (linux)   -  FastLED_NeoMatrix   -/
 ```
 
 Color Management and Adafruit::GFX
@@ -68,9 +70,10 @@ Driver backends that use this library base class
 ------------------------------------------------
 This is a base class, offering support for these drivers:
 - https://github.com/marcmerlin/FastLED_NeoMatrix/
-- https://github.com/marcmerlin/SmartMatrix_GFX/
+- https://github.com/marcmerlin/SmartMatrix_GFX/ (RGBPanels on Teensy)
+- https://github.com/marcmerlin/FastLED_ESP32-HUB75-MatrixPanel_FrameBuffer_GFX (RGBPanels on ESP32 class chips)
 - https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331, ILI9341, and ST7735 TFTs)
-- https://github.com/marcmerlin/FastLED_RPIRGBPanel_GFX (Glue driver for https://github.com/marcmerlin/ArduinoOnPc-FastLED-GFX-LEDMatrix/ that allows displaying a matrix on RGBPanels using https://github.com/hzeller/rpi-rgb-led-matrix )
+- https://github.com/marcmerlin/FastLED_RPIRGBPanel_GFX (Glue driver for https://github.com/marcmerlin/ArduinoOnPc-FastLED-GFX-LEDMatrix/ that allows displaying a matrix on RGBPanels using https://github.com/hzeller/rpi-rgb-led-matrix for Raspberry Pi)
 - https://github.com/marcmerlin/FastLED_TFTWrapper_GFX (Emulate a TFT screen on linux for https://github.com/marcmerlin/ArduinoOnPc-FastLED-GFX-LEDMatrix/ )
 - https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/blob/022257656e2f1beabe327e88bb96747c0fc955f9/neomatrix_config.h#L792 (FastLED emulation on linux/SDL)
 
