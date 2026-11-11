@@ -8,22 +8,24 @@ How FrameBuffer::GFX fits and the glue drivers I wrote
 I used all the low level drivers on the left, wrote all the glue drivers in the middle, and FrameBuffer::GFX
 ```
 Low Level Drv|Glue Driver for FrameBuffer::GFX
-FastLED     - FastLED_NeoMatrix  -------------\     FastLED CRGB Array 
-ESP32-HUB75-MatrixPanel -,                      |
-FastLED_ESP32-HUB75-MatrixPanel_FrameBuffer_GFX
-SmartMatrix - SmartMatrix_GFX -----------------\    24bit FB storage        API Support
-                                                \   CRGB methods like
-AF:ILI9341-\                                     \  scale8/fadeToBlackBy
-AF:SSD1331  |--- FastLED_ArduinoGFX_TFT ----------|        |               ,FastLED API
-AF:ST7735  /     FastLED_SPITFT_GFX (for AF)      |        |              / (XY 2D to 1D mapping)
-ArduinoGFX/  AF:Adafruit (ArduinoGFX is all in 1) |        |             /
-                                                  |        |            /
-ArduinoOnPc-FastLED-GFX-LEDMatrix arduino         - FrameBuffer::GFX------ Adafruit::NeoMatrix +
-emulation for linux / Raspberry Pi:               |        |             \ Adafruit::GFX APIs
-----------------------------------               /    Adafruit::GFX       \ 
-rpi-rgb-led-matrix - FastLED_RPIRGBPanel_GFX ---/   LEDMatrix (optional)   `LEDMatrix API
+FastLED     - FastLED_NeoMatrix  -------------\     FastLED CRGB Array 
+Adafruit_Protomatter vv                        \
+   FastLED_Protomatter_RGBPanel_FrameBuffer_GFX-|
+ESP32-HUB75-MatrixPanel vvv                     |
+FastLED_ESP32-HUB75-MatrixPanel_FrameBuffer_GFX-|
+SmartMatrix - SmartMatrix_GFX ----------------- |    24bit FB storage        API Support
+                                                \   CRGB methods like
+AF:ILI9341-\                                     \  scale8/fadeToBlackBy
+AF:SSD1331  |--- FastLED_ArduinoGFX_TFT ----------|        |               ,FastLED API
+AF:ST7735  /     FastLED_SPITFT_GFX (for AF)      |        |              / (XY 2D to 1D mapping)
+ArduinoGFX/  AF:Adafruit (ArduinoGFX is all in 1) |        |             /
+                                                  |        |            /
+ArduinoOnPc-FastLED-GFX-LEDMatrix arduino         - FrameBuffer::GFX------ Adafruit::NeoMatrix +
+emulation for linux / Raspberry Pi:               |        |             \ Adafruit::GFX APIs
+----------------------------------               /    Adafruit::GFX       \ 
+rpi-rgb-led-matrix - FastLED_RPIRGBPanel_GFX ---/   LEDMatrix (optional)   `LEDMatrix API
 ArduinoOnPC X11/linux - FastLED_TFTWrapper_GFX /
-FastLED_SDL (linux)   -  FastLED_NeoMatrix   -/
+FastLED_SDL (linux)   -  FastLED_NeoMatrix   -/
 ```
 
 Color Management and Adafruit::GFX
