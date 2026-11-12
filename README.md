@@ -74,6 +74,7 @@ This is a base class, offering support for these drivers:
 - https://github.com/marcmerlin/FastLED_NeoMatrix/ (Merging Neopixel Panels into a bigger array)
 - https://github.com/marcmerlin/SmartMatrix_GFX/ (RGBPanels on Teensy)
 - https://github.com/marcmerlin/FastLED_ESP32-HUB75-MatrixPanel_FrameBuffer_GFX (RGBPanels on ESP32 class chips)
+- https://github.com/marcmerlin/FastLED_Protomatter_RGBPanel_FrameBuffer_GFX (RGBPanels on RP2040/RP2350)
 - https://github.com/marcmerlin/FastLED_SPITFT_GFX (SSD1331, ILI9341, and ST7735 TFTs)
 - https://github.com/marcmerlin/Arduino_GFX (newer TFT driver that supports many more TFTs on linux)
 - https://github.com/marcmerlin/FastLED_RPIRGBPanel_GFX (Glue driver for https://github.com/marcmerlin/ArduinoOnPc-FastLED-GFX-LEDMatrix/ that allows displaying a matrix on RGBPanels using https://github.com/hzeller/rpi-rgb-led-matrix for Raspberry Pi)
