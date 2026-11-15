@@ -34,11 +34,33 @@
 #define TELNET_PORT 23
 #endif
 
-#include "wifi_secrets.h"
+#ifndef WIFI_SSID
+#define WIFI_SSID "yourhomewifi"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "youwifipwd"
+#endif
+
+#ifndef WIFI_AP_SSID
+#define WIFI_AP_SSID "LED"
+#endif
+
+#ifndef WIFI_AP_PASSWORD
+#define WIFI_AP_PASSWORD "Ledpassword"
+#endif
 
 #ifndef WIFI_AP_CHANNEL
 #define WIFI_AP_CHANNEL 1
 #endif
+
+
+#if __has_include("wifi_secrets.h")
+    #include "wifi_secrets.h"
+#else
+    #pragma message "wifi_secrets.h missing, you won't like the defaults :)"
+#endif
+
 
 volatile bool wifi_network_stable = false;
 
