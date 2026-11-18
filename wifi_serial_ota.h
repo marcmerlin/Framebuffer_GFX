@@ -1,9 +1,12 @@
 #ifndef WIFI_SERIAL_OTA_H
 #define WIFI_SERIAL_OTA_H
 
+#ifdef ESP32
+#define NVRAM
+#endif
+
 // This is limited to 10 Wifi Clients by the arduino Wifi Core but defaults to 4
 #define MAX_SLAVES 10
-
 #define AP_MAX_CLIENTS 10
 
 // May make things more stable but costs more power
@@ -947,21 +950,27 @@ void connectionStatus(const char *ssid, bool trying, bool failure, bool success)
 
 void set_wifi_mode(uint8_t msf) {
   if (msf == 1) {
-      Serial.println(">>>>>>>>>>>>>> Waveshare Configured for Wifi client (slave) mode");
+      Serial.println(">>>>>>>>>>>>>> Configured for Wifi client (slave) mode");
       WIFI_SLAVE_MODE = true;
   }
-  if (msf == 2) {
-      Serial.println(">>>>>>>>>>>>>> Waveshare Configured for Wifi AP mode but will try WIFI_SSID first");
+  else if (msf == 2) {
+      Serial.println(">>>>>>>>>>>>>> Configured for Wifi AP mode but will try WIFI_SSID first");
       Serial.println(">>>>>>>>>>>>>> AP/Slave may not work on some APs unless you configure proxy ARP on the AP");
       WIFI_SLAVE_MODE = false;
   }
-  if (msf == 3) {
-      Serial.println(">>>>>>>>>>>>>> Waveshare Configured for Wifi ForceAP");
+  else if (msf == 3) {
+      Serial.println(">>>>>>>>>>>>>> Configured for Wifi ForceAP");
+      WIFI_SLAVE_MODE = false;
+      WIFI_FORCEAP_MODE = true;
+  }
+  else {
+      Serial.println(">>>>>>>>>>>>>> No NVRAM Config Set, will fallback to pin config or slave mode");
       WIFI_SLAVE_MODE = false;
       WIFI_FORCEAP_MODE = true;
   }
 }
 
+uint8_t get_nvram_master_slave_forceap();
 // we need a callback because it calls the matrix we can't access here
 void wifi_setup(void (*main_page_callback)() = nullptr, void (*ota_start_callback)() = nullptr, void (*_wifi_connect_callback)() = nullptr) {
   wifi_main_page_callback = main_page_callback;
@@ -969,12 +978,14 @@ void wifi_setup(void (*main_page_callback)() = nullptr, void (*ota_start_callbac
   masterBootToken = esp_random();
 
   Serial.println();
-  Serial.println(">>>> WIFI Setup, reading bootup config...");
 
   // Some chips do not have NVRAM
   #if defined(NVRAM)
+      Serial.println(">>>> WIFI Setup, reading bootup config from nvram..");
       wifi_master_slave_forceap = get_nvram_master_slave_forceap();
       set_wifi_mode(wifi_master_slave_forceap);
+  #else
+      Serial.println(">>>> Non NVRAM WIFI Setup, reading bootup config...");
   #endif
 
   // We can use I/O pins and wires to set default config
@@ -1179,9 +1190,8 @@ void wifi_loop() {
 // From neomatrix_config.h
 extern uint8_t matrix_brightness;
 
-#ifdef ESP32
-#define NVRAM
-#endif
+// from your calling code
+extern void display_iphostname();
 
 #ifdef NVRAM
   #ifndef NVRAM_BUCKET
@@ -1197,6 +1207,7 @@ extern uint8_t matrix_brightness;
       // Truncate to 16 chars
       String truncated = new_id.substring(0, 16);
       
+      Serial.printf("%%%%%%%%%% saving hostname %s in %s\r\n", truncated, NVRAM_BUCKET);
       // Write directly using a key. No offsets needed.
       prefs.putString("hostname", truncated);
       prefs.end();
@@ -1223,7 +1234,7 @@ extern uint8_t matrix_brightness;
   void set_nvram_brightness(const uint8_t brightness) {
       prefs.begin(NVRAM_BUCKET, false); // Open namespace, false = read/write
       
-      Serial.printf("%%%%%%%%%% saving brightness %d\r\n", brightness);
+      Serial.printf("%%%%%%%%%% saving brightness %d in %s\r\n", brightness, NVRAM_BUCKET);
       prefs.putUChar("brightness", brightness);
       prefs.end();
   }
@@ -1244,7 +1255,7 @@ extern uint8_t matrix_brightness;
       prefs.begin(NVRAM_BUCKET, false); // Open namespace, false = read/write
       
       // key length must be 15 chars or less
-      Serial.printf("%%%%%%%%%% saving msforceap %d\r\n", master_slave_forceap);
+      Serial.printf("%%%%%%%%%% saving msforceap %d in %s\r\n", master_slave_forceap, NVRAM_BUCKET);
       prefs.putUChar("msforceap", master_slave_forceap);
       prefs.end();
   }
@@ -1263,7 +1274,11 @@ extern uint8_t matrix_brightness;
 
   void process_nvram_serial(char readchar) {
   
-    if (readchar == 'w') {
+    if (readchar == 'W') {
+      Serial.printf("Saving Current Brightness To Flash: %d\r\n", matrix_brightness);
+      set_nvram_brightness(matrix_brightness);
+    }
+    else if (readchar == 'w') {
       Serial.read(); // read potential newline
       // defined and read in wifi_setup
       Serial.printf("Current Wifi Mode: %d\r\n", wifi_master_slave_forceap);
@@ -1275,16 +1290,18 @@ extern uint8_t matrix_brightness;
           char c = Serial.read();
           if (c < '0' || c > '3') { Serial.printf("%c invalid\r\n", c); break; }
           wifi_master_slave_forceap = c - '0';
-  	set_wifi_mode(wifi_master_slave_forceap);
+  	  set_wifi_mode(wifi_master_slave_forceap);
           Serial.printf("Saving Wifi Mode %d to NVRAM\n\r", wifi_master_slave_forceap);
   	set_nvram_master_slave_forceap(wifi_master_slave_forceap);
         } else {
   	  wifi_loop();
         }
       }
-    } else if (readchar == 'B') {
-      Serial.printf("Saving Current Brightness To Flash: %d\r\n", matrix_brightness);
-      set_nvram_brightness(matrix_brightness);
+    }
+    else if (readchar == 'i') {
+      Serial.println("Serial => display IP+hostname");
+      Serial.printf("Hostname %s\n", get_hostname().c_str());
+      display_iphostname();
     }
     else if (readchar == 'H') {
       Serial.read(); // read potential newline
@@ -1315,7 +1332,17 @@ extern uint8_t matrix_brightness;
       ArduinoOTA.end();
       ArduinoOTA.setHostname(newhostname.c_str());
       ArduinoOTA.begin();
+      display_iphostname();
     }
+
+  }
+
+  void show_nvram_func_help() {
+    Serial.println("W => save brightness to NVRAM (do not save until you test it doesn't crash)");
+    Serial.println("w => set wifi mode (1: slave, 2: AP, 3: ForceAP)");
+    Serial.println("i => show IP + hostname");
+    Serial.println("H => get and set new hostname in NVRAM");
+    
   }
 #endif // NVRAM
 
