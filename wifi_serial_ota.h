@@ -14,6 +14,16 @@
 #define WAVESHARE_MASTER_PIN 7  // top left, client/slave mode after client to WIFI_SSID fails
 #define WAVESHARE_FORCEAP_PIN 9 // below pin8, force creating AP even when WIFI_SSID is there
 
+#if __has_include("wifi_secrets.h")
+    #include "wifi_secrets.h"
+#else
+    #pragma message "wifi_secrets.h missing, you won't like the defaults :)"
+#endif
+
+#if !defined(WIFI_SSID)
+    #error "please define WIFI vars by #define or in wifi_secrets.h"
+#endif
+
 // you define WIFI_HOSTNAME before doing #include "wifi_serial_ota.h"
 // Also define WIFI_SSID and WIFI_PASSWORD before you include
 // However, this is now only left in case you want to rip out EEPROM support
@@ -53,14 +63,6 @@
 #ifndef WIFI_AP_CHANNEL
 #define WIFI_AP_CHANNEL 1
 #endif
-
-
-#if __has_include("wifi_secrets.h")
-    #include "wifi_secrets.h"
-#else
-    #pragma message "wifi_secrets.h missing, you won't like the defaults :)"
-#endif
-
 
 volatile bool wifi_network_stable = false;
 
@@ -176,9 +178,12 @@ public:
 
   // Pass the initialization through to the underlying serial interface
   void begin(unsigned long baud) {
+    #ifdef ESP32
+      hw->setTxBufferSize(2048);
+    #endif
     hw->begin(baud);
     // TinyUSB CDC: prevent blocking when host port is closed
-    // Hardware USB Serial/JTAG (HWCDC): drop immediately if FIFO full and no host
+    // Hardware USB Serial/JTAG (HWCDC): drop immediately if 2KB ring buffer is full and no host reads
     #if ARDUINO_USB_CDC_ON_BOOT
     hw->setTxTimeoutMs(0);
     #endif
@@ -231,6 +236,9 @@ public:
         if (client) client.stop();
         // Fixed Core 3.x deprecation: converted available() to accept()
         client = server->accept(); 
+	// Prevent 3s blocking stalls if TCP client stops reading, and disable Nagle buffering
+        client.setTimeout(0);
+        client.setNoDelay(true);
         client.println("\n--- Connected to ESP32 Serial Splitter ---");
       } else {
         // Fixed Core 3.x deprecation: converted available() to accept()
@@ -242,8 +250,12 @@ public:
 
   // --- STREAM/PRINT OUTPUT OVERRIDES ---
   
-    size_t write(uint8_t c) override {
-    if (hw && *hw && hw->availableForWrite() > 0) {
+  int availableForWrite() override {
+    return hw ? hw->availableForWrite() : 0;
+  }
+
+  size_t write(uint8_t c) override {
+    if (hw && hw->availableForWrite() > 0) {
       hw->write(c);
     }
     if (client && client.connected()) {
@@ -252,15 +264,16 @@ public:
     return 1;
   }
 
-    size_t write(const uint8_t *buffer, size_t size) override {
-    if (hw && *hw && hw->availableForWrite() >= (int)size) {
-      hw->write(buffer, size);
-    }
-    if (client && client.connected()) {
-      client.write(buffer, size);
-    }
-    return size;
-  }
+  size_t write(const uint8_t *buffer, size_t size) override {
+    if (!buffer || size == 0) return 0;
+    if (hw && hw->availableForWrite() >= (int)size) {
+       hw->write(buffer, size);
+     }
+     if (client && client.connected()) {
+       client.write(buffer, size);
+     }
+     return size;
+   }
 
   // --- STREAM INPUT OVERRIDES (TWO-WAY COMMS) ---
 
@@ -303,9 +316,9 @@ public:
   }
 
   void flush() override { 
-    hw->flush(); 
-    // Fixed Core 3.x deprecation: converted flush() to clear()
-    if(client) client.clear(); 
+    if (hw) {
+      hw->flush();
+    }
   }
 };
 
