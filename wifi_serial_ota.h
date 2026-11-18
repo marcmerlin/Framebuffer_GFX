@@ -70,85 +70,7 @@ volatile bool wifi_network_stable = false;
 #include <WiFi.h>
 /// used for EVERY_N_SECONDS
 #include "FastLED.h"
-
-#ifdef ESP32
-#define NVRAM
-#endif
-
-#ifdef NVRAM
-#include <Preferences.h>
-Preferences prefs;
-
-void set_hostname(const String& new_id) {
-    prefs.begin("TME69", false); // Open namespace, false = read/write
-    
-    // Truncate to 16 chars
-    String truncated = new_id.substring(0, 16);
-    
-    // Write directly using a key. No offsets needed.
-    prefs.putString("hostname", truncated);
-    prefs.end();
-}
-
-String get_hostname() {
-    prefs.begin("TME69", true); // true = read-only
-    
-    // Read the key. If it doesn't exist, return empty string
-    String stored_id = prefs.getString("hostname", "");
-    prefs.end();
-    
-    if (stored_id.length() > 0) {
-        return stored_id;
-    }
-
-    // Fallback to eFuse MAC
-    uint64_t chip_mac = ESP.getEfuseMac();
-    char default_id[13];
-    snprintf(default_id, sizeof(default_id), "%012llX", (unsigned long long)chip_mac);
-    return String(default_id);
-}
-
-void set_nvram_brightness(const uint8_t brightness) {
-    prefs.begin("TME69", false); // Open namespace, false = read/write
-    
-    Serial.printf("%%%%%%%%%% saving brightness %d\r\n", brightness);
-    prefs.putUChar("brightness", brightness);
-    prefs.end();
-}
-
-uint8_t get_nvram_brightness() {
-    prefs.begin("TME69", true); // true = read-only
-    
-    // Read the key. The second argument (64) is the default value 
-    // returned if the key does not exist yet (e.g., first boot).
-    uint8_t brightness = prefs.getUChar("brightness", 64);
-    
-    prefs.end();
-    
-    return brightness;
-}
-
-void set_nvram_master_slave_forceap(const uint8_t master_slave_forceap) {
-    prefs.begin("TME69", false); // Open namespace, false = read/write
-    
-    // key length must be 15 chars or less
-    Serial.printf("%%%%%%%%%% saving msforceap %d\r\n", master_slave_forceap);
-    prefs.putUChar("msforceap", master_slave_forceap);
-    prefs.end();
-}
-
-uint8_t get_nvram_master_slave_forceap() {
-    prefs.begin("TME69", true); // true = read-only
-    
-    // Read the key. The second argument (0) is the default value 
-    // returned if the key does not exist yet (e.g., first boot).
-    uint8_t master_slave_forceap = prefs.getUChar("msforceap", 0);
-    
-    prefs.end();
-    
-    return master_slave_forceap;
-}
-#endif
+String get_hostname();
 
 // ####################################################################
 // Serial network splitter. Anything below here will get network serial
@@ -342,6 +264,8 @@ GenericSerialSplitter<decltype(Serial)> Splitter(Serial, TELNET_PORT);
 #include <WiFiMulti.h>
 #include <ArduinoOTA.h>
 
+volatile uint8_t wifi_master_slave_forceap = 0;
+
 OmWebServer *WebServer = NULL;
 OmWebPages *WebPages = NULL;
 
@@ -377,8 +301,6 @@ volatile bool ota_in_progress = false;
 
 void (*wifi_main_page_callback)() = nullptr;
 void (*wifi_connect_callback)() = nullptr;
-
-volatile uint8_t wifi_master_slave_forceap = 0;
 
 // this may stop udp packets from being processed, turn off when not debugging
 // #define WIFI_SNIFFER
@@ -694,18 +616,18 @@ void listen_for_master_broadcast() {
 
             packetSize = udp.parsePacket();
             if (packetSize >= sizeof(MasterBeaconPacket)) {
+                IPAddress senderIP = udp.remoteIP();
+
                 MasterBeaconPacket beacon;
                 udp.read((uint8_t*)&beacon, sizeof(beacon));
 		beacon.beacon_id[BEACON_STR_SIZE]=0;
+                uint32_t receivedToken = beacon.boot_token;
                 
                 // Reject packets that do not match our defined network ID
                 if (strncmp(beacon.beacon_id, WIFI_BEACON_ID, sizeof(beacon.beacon_id)) != 0) {
-		    Serial.printf("!!!!!>>>>>>>>>>>>>  Slave ignoring beacon %s != %s\r\n", beacon.beacon_id , WIFI_BEACON_ID);
+		    Serial.printf("!!!!!>>>>>>>>>>>>>  Slave ignoring beacon %s != %s from %s\r\n", beacon.beacon_id , WIFI_BEACON_ID, senderIP.toString().c_str());
                     return; 
                 }
-
-                uint32_t receivedToken = beacon.boot_token;
-                IPAddress senderIP = udp.remoteIP();
                 
                 if (senderIP != Master_IP || receivedToken != lastMasterBootToken) {
                     Serial.printf(">>>>>>>>>>>>>> Master Found! IP: %s, Token: %u, ID: %s\r\n", senderIP.toString().c_str(), receivedToken, beacon.beacon_id);
@@ -1250,9 +1172,151 @@ void wifi_loop() {
   }
 }
 
+// ####################################################################
+// NVRAM Storage, please define the NVRAM Storage Name 
+// ####################################################################
 
-// ###########################################################################################
-// End of WIFI
-// ###########################################################################################
+// From neomatrix_config.h
+extern uint8_t matrix_brightness;
+
+#ifdef ESP32
+#define NVRAM
+#endif
+
+#ifdef NVRAM
+  #ifndef NVRAM_BUCKET
+  #error "#define NVRAM_BUCKET before including this file"
+  #endif
+  
+  #include <Preferences.h>
+  Preferences prefs;
+  
+  void set_hostname(const String& new_id) {
+      prefs.begin(NVRAM_BUCKET, false); // Open namespace, false = read/write
+      
+      // Truncate to 16 chars
+      String truncated = new_id.substring(0, 16);
+      
+      // Write directly using a key. No offsets needed.
+      prefs.putString("hostname", truncated);
+      prefs.end();
+  }
+  
+  String get_hostname() {
+      prefs.begin(NVRAM_BUCKET, true); // true = read-only
+      
+      // Read the key. If it doesn't exist, return empty string
+      String stored_id = prefs.getString("hostname", "");
+      prefs.end();
+      
+      if (stored_id.length() > 0) {
+          return stored_id;
+      }
+  
+      // Fallback to eFuse MAC
+      uint64_t chip_mac = ESP.getEfuseMac();
+      char default_id[13];
+      snprintf(default_id, sizeof(default_id), "%012llX", (unsigned long long)chip_mac);
+      return String(default_id);
+  }
+  
+  void set_nvram_brightness(const uint8_t brightness) {
+      prefs.begin(NVRAM_BUCKET, false); // Open namespace, false = read/write
+      
+      Serial.printf("%%%%%%%%%% saving brightness %d\r\n", brightness);
+      prefs.putUChar("brightness", brightness);
+      prefs.end();
+  }
+  
+  uint8_t get_nvram_brightness() {
+      prefs.begin(NVRAM_BUCKET, true); // true = read-only
+      
+      // Read the key. The second argument (64) is the default value 
+      // returned if the key does not exist yet (e.g., first boot).
+      uint8_t brightness = prefs.getUChar("brightness", 64);
+      
+      prefs.end();
+      
+      return brightness;
+  }
+  
+  void set_nvram_master_slave_forceap(const uint8_t master_slave_forceap) {
+      prefs.begin(NVRAM_BUCKET, false); // Open namespace, false = read/write
+      
+      // key length must be 15 chars or less
+      Serial.printf("%%%%%%%%%% saving msforceap %d\r\n", master_slave_forceap);
+      prefs.putUChar("msforceap", master_slave_forceap);
+      prefs.end();
+  }
+  
+  uint8_t get_nvram_master_slave_forceap() {
+      prefs.begin(NVRAM_BUCKET, true); // true = read-only
+      
+      // Read the key. The second argument (0) is the default value 
+      // returned if the key does not exist yet (e.g., first boot).
+      uint8_t master_slave_forceap = prefs.getUChar("msforceap", 0);
+      
+      prefs.end();
+      
+      return master_slave_forceap;
+  }
+
+  void process_nvram_serial(char readchar) {
+  
+    if (readchar == 'w') {
+      Serial.read(); // read potential newline
+      // defined and read in wifi_setup
+      Serial.printf("Current Wifi Mode: %d\r\n", wifi_master_slave_forceap);
+      Serial.print("Input 1 (slave), 2 (master), 3 (forceap): ");
+  
+      // Block efficiently until a newline arrives, building the string manually
+      while (true) {
+        if (Serial.available()) {
+          char c = Serial.read();
+          if (c < '0' || c > '3') { Serial.printf("%c invalid\r\n", c); break; }
+          wifi_master_slave_forceap = c - '0';
+  	set_wifi_mode(wifi_master_slave_forceap);
+          Serial.printf("Saving Wifi Mode %d to NVRAM\n\r", wifi_master_slave_forceap);
+  	set_nvram_master_slave_forceap(wifi_master_slave_forceap);
+        } else {
+  	  wifi_loop();
+        }
+      }
+    } else if (readchar == 'B') {
+      Serial.printf("Saving Current Brightness To Flash: %d\r\n", matrix_brightness);
+      set_nvram_brightness(matrix_brightness);
+    }
+    else if (readchar == 'H') {
+      Serial.read(); // read potential newline
+      Serial.printf("Current Hostname: %s\r\n", get_hostname().c_str());
+      Serial.print("Input New Hostname: ");
+  
+      String newhostname = "";
+      // Block efficiently until a newline arrives, building the string manually
+      while (true) {
+        if (Serial.available()) {
+          char c = Serial.read();
+          if (c == '\n') break; // End of input
+          if (c == '\r') break; // End of input
+  	// make hostnames compliant for networking/DNS
+          if (c == ' ') c = '-';
+          if (c == '_') c = '-';
+          newhostname += c;
+        } else {
+  	// Serial can come from wifi, so allow it to run
+  	wifi_loop();
+        }
+      }
+  
+      newhostname.trim(); // Clean up trailing '\r' if present
+      Serial.printf("Received new hostname %s, saving in flash\r\n", newhostname.c_str());
+      set_hostname(newhostname);
+      Serial.println("Track hostnames in linux with: avahi-browse -rt _arduino._tcp");
+      ArduinoOTA.end();
+      ArduinoOTA.setHostname(newhostname.c_str());
+      ArduinoOTA.begin();
+    }
+  }
+#endif // NVRAM
 
 #endif // WIFI_SERIAL_OTA_H
