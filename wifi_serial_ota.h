@@ -555,6 +555,122 @@ void broadcast_master_presence() {
      }
 }
 
+void rebuild_main_page();
+void set_wifi_mode(uint8_t msf);
+void restart_ota_service();
+#ifdef NVRAM
+extern void display_iphostname();
+void set_hostname(const String& new_id);
+void set_nvram_master_slave_forceap(const uint8_t master_slave_forceap);
+#endif
+
+bool add_slave_ip(IPAddress incoming_ip) {
+    if ((uint32_t)incoming_ip == 0) return false;
+    for (uint8_t i = 0; i < slave_ip_count; i++) {
+        if (Slave_IPs[i] == incoming_ip) {
+            return false;
+        }
+    }
+    if (slave_ip_count < MAX_SLAVES) {
+        Slave_IPs[slave_ip_count++] = incoming_ip;
+    } else {
+        for (uint8_t i = 1; i < MAX_SLAVES; i++) {
+            Slave_IPs[i - 1] = Slave_IPs[i];
+        }
+        Slave_IPs[MAX_SLAVES - 1] = incoming_ip;
+    }
+    Serial.print(">>>>>>>>>>>>>>>> ESP32 Master stored new Slave IP: ");
+    Serial.println(incoming_ip.toString().c_str());
+    return true;
+}
+
+void wifi_ap_mode_cb(const char *pageName, const char *parameterName, int value, int ref1, void *ref2) {
+    if (value < 1 || value > 3) return;
+    wifi_master_slave_forceap = (uint8_t) value; // 1=slave, 2=AP/master, 3=ForceAP
+    set_wifi_mode(wifi_master_slave_forceap);
+    #ifdef NVRAM
+    Serial.printf("Saving Wifi Mode %d to NVRAM\n\r", wifi_master_slave_forceap);
+    set_nvram_master_slave_forceap(wifi_master_slave_forceap);
+    #endif
+    rebuild_main_page();
+}
+
+bool wifi_handle_url(OmXmlWriter &w, OmWebRequest &request) {
+    if (strcmp(request.path, "/wifi_form") != 0) {
+        return false;
+    }
+    WebPages->renderHttpResponseHeader("text/html", 200);
+    w.puts("<meta http-equiv=refresh content=\"2; URL=/\" />\n");
+
+    if (request.query.size() < 2) {
+        w.puts("Missing form parameter<BR>\n");
+        return true;
+    }
+
+    const char *key = request.query[0];
+    String val = String(request.query[1]);
+
+    if (strcmp(key, "hostname") == 0) {
+        #ifdef NVRAM
+        val.replace("%20", "-");
+        val.replace('+', '-');
+        val.replace(' ', '-');
+        val.replace('_', '-');
+        val.replace("\"", "");
+        val.replace("<", "");
+        val.replace(">", "");
+        val.trim();
+        if (val.length() > 0) {
+            Serial.printf("Received new hostname %s, saving in flash\r\n", val.c_str());
+            set_hostname(val);
+            restart_ota_service();
+            display_iphostname();
+            w.putf("Saved hostname: %s<BR>\n", get_hostname().c_str());
+        } else {
+            w.puts("Empty hostname ignored<BR>\n");
+        }
+        #else
+        w.puts("NVRAM not enabled<BR>\n");
+        #endif
+    } else if (strcmp(key, "masterip") == 0) {
+        val.replace("%20", "");
+        val.replace("+", "");
+        val.trim();
+        IPAddress ip;
+        if (ip.fromString(val) && (uint32_t)ip != 0) {
+            Master_IP = ip;
+            lastMasterBootToken = 0;
+            slave_ip_sent = false;
+            send_slave_ip_to_master_tries = 0;
+            Serial.printf("Forced Master IP via web: %s\r\n", Master_IP.toString().c_str());
+            send_slave_ip_to_master();
+            w.putf("Forced Master IP: %s<BR>\n", Master_IP.toString().c_str());
+        } else {
+            w.putf("Invalid Master IP: %s<BR>\n", val.c_str());
+        }
+    } else if (strcmp(key, "slaveip") == 0) {
+        val.replace("%20", "");
+        val.replace("+", "");
+        val.trim();
+        IPAddress ip;
+        if (ip.fromString(val) && (uint32_t)ip != 0) {
+            bool added = add_slave_ip(ip);
+            w.putf("%s Slave IP: %s<BR>\n", added ? "Added" : "Already known", ip.toString().c_str());
+        } else {
+            w.putf("Invalid Slave IP: %s<BR>\n", val.c_str());
+        }
+    } else {
+        w.putf("Unknown wifi_form parameter: %s<BR>\n", key);
+    }
+    return true;
+}
+
+void wifi_url_handler(OmXmlWriter &w, OmWebRequest &request, int ref1, void *ref2) {
+    if (wifi_handle_url(w, request)) return;
+    WebPages->renderHttpResponseHeader("text/plain", 404);
+    w.puts("Not Found\n");
+}
+
 void rebuild_main_page() {
     static uint8_t count=0;
     count++;
@@ -594,6 +710,22 @@ void rebuild_main_page() {
         }
     });
     if (wifi_main_page_callback) wifi_main_page_callback();
+
+    WebPages->beginPage("ESP");
+
+    uint8_t ap_mode_slider = WIFI_SLAVE_MODE ? 1 : (WIFI_FORCEAP_MODE ? 3 : 2);
+    WebPages->addSlider(1, 3, "AP Mode (Slave/AP/ForceAP)", wifi_ap_mode_cb, ap_mode_slider, 0);
+    WebPages->addHtml([] (OmXmlWriter & w, int ref1, void *ref2)
+    {
+        #ifdef NVRAM
+        w.putf("Hostname: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=hostname VALUE=\"%s\"><INPUT TYPE=submit VALUE=Set></FORM>", get_hostname().c_str());
+        #endif
+        if (WIFI_SLAVE_MODE) {
+            w.putf("Master IP: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=masterip VALUE=\"%s\"><INPUT TYPE=submit VALUE=Set></FORM>", Master_IP.toString().c_str());
+        } else {
+            w.puts("Slave IP: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=slaveip><INPUT TYPE=submit VALUE=Add></FORM>");
+        }
+    });
 }
 
 
@@ -952,11 +1084,13 @@ void set_wifi_mode(uint8_t msf) {
   if (msf == 1) {
       Serial.println(">>>>>>>>>>>>>> Configured for Wifi client (slave) mode");
       WIFI_SLAVE_MODE = true;
+      WIFI_FORCEAP_MODE = false;
   }
   else if (msf == 2) {
       Serial.println(">>>>>>>>>>>>>> Configured for Wifi AP mode but will try WIFI_SSID first");
       Serial.println(">>>>>>>>>>>>>> AP/Slave may not work on some APs unless you configure proxy ARP on the AP");
       WIFI_SLAVE_MODE = false;
+      WIFI_FORCEAP_MODE = false;
   }
   else if (msf == 3) {
       Serial.println(">>>>>>>>>>>>>> Configured for Wifi ForceAP");
@@ -1031,6 +1165,8 @@ void wifi_setup(void (*main_page_callback)() = nullptr, void (*ota_start_callbac
   });
 
   WebServer->setHandler(*WebPages);
+  WebPages->addUrlHandler("/wifi_form", wifi_url_handler);
+  WebPages->addUrlHandler(wifi_url_handler);
   rebuild_main_page();
 
   // Register debug/status callbacks
