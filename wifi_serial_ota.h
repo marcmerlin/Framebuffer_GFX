@@ -965,8 +965,8 @@ void set_wifi_mode(uint8_t msf) {
   }
   else {
       Serial.println(">>>>>>>>>>>>>> No NVRAM Config Set, will fallback to pin config or slave mode");
-      WIFI_SLAVE_MODE = false;
-      WIFI_FORCEAP_MODE = true;
+      WIFI_SLAVE_MODE = true;
+      WIFI_FORCEAP_MODE = false;
   }
 }
 
@@ -1272,7 +1272,7 @@ extern void display_iphostname();
       return master_slave_forceap;
   }
 
-  void process_nvram_serial(char readchar) {
+  bool process_nvram_serial(char readchar) {
   
     if (readchar == 'W') {
       Serial.printf("Saving Current Brightness To Flash: %d\r\n", matrix_brightness);
@@ -1288,6 +1288,7 @@ extern void display_iphostname();
       while (true) {
         if (Serial.available()) {
           char c = Serial.read();
+	  if (c == '\n' || c == '\r' ) { break; }
           if (c < '0' || c > '3') { Serial.printf("%c invalid\r\n", c); break; }
           wifi_master_slave_forceap = c - '0';
   	  set_wifi_mode(wifi_master_slave_forceap);
@@ -1334,7 +1335,10 @@ extern void display_iphostname();
       ArduinoOTA.begin();
       display_iphostname();
     }
-
+    else {
+	return 1; // couldn't process as NVRAM command
+    }
+    return 0;
   }
 
   void show_nvram_func_help() {
