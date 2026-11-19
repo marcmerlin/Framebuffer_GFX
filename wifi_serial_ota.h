@@ -1336,9 +1336,10 @@ extern void display_iphostname();
       display_iphostname();
     }
     else {
-	return 1; // couldn't process as NVRAM command
+	return 0; // couldn't process as NVRAM command
     }
-    return 0;
+    //Serial.println("NVRAM Command Done");
+    return 1;
   }
 
   void show_nvram_func_help() {
