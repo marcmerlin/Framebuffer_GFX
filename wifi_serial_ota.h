@@ -684,6 +684,8 @@ void rebuild_main_page() {
 	w.puts((String(" Built: ") + __DATE__ + " " + __TIME__ ).c_str());
 	w.puts(". Html Refresh: ");
 	w.puts(String(count).c_str());
+	w.puts("<BR>\nHostname: ");
+	w.puts(get_hostname().c_str());
 	w.puts("<BR>\n");
         if (WIFI_SLAVE_MODE) {
             w.puts("Master IP: ");
