@@ -343,11 +343,13 @@ struct APClient {
     bool active;
 };
 APClient ap_clients[16];
+volatile bool ap_needs_config = false;
 
 void onApEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     switch (event) {
     case ARDUINO_EVENT_WIFI_AP_START:
 	wifi_network_stable = true;
+	ap_needs_config = true;
         // The AP interface is now fully up and running
 	// Need |St for serial sync with Pi
 	// but this is likely too early ESP32 is not going to be ready for the reply
@@ -421,6 +423,26 @@ void configure_short_dhcp_lease() {
     }
 }
 
+void enforce_ap_config() {
+    static uint8_t heal_retries = 0;
+    if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) return;
+
+    wifi_config_t ap_conf;
+    if (esp_wifi_get_config(WIFI_IF_AP, &ap_conf) != ESP_OK) return;
+
+    if (ap_conf.ap.max_connection < AP_MAX_CLIENTS || ap_conf.ap.channel != WIFI_AP_CHANNEL) {
+        if (heal_retries >= 2) return;
+        heal_retries++;
+        Serial.printf("\n>>> [AUTO-HEAL] AP ch=%d max_conn=%d! Re-forcing ch=%d max_conn=%d...<<<<\r\n",
+                      ap_conf.ap.channel, ap_conf.ap.max_connection, WIFI_AP_CHANNEL, AP_MAX_CLIENTS);
+        WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, 0, AP_MAX_CLIENTS);
+        configure_short_dhcp_lease();
+    } else {
+        heal_retries = 0;
+    }
+}
+
+
 void print_ap_client_table() {
     if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) return;
 
@@ -430,13 +452,8 @@ void print_ap_client_table() {
     wifi_config_t ap_conf;
     uint8_t max_sta_configured = AP_MAX_CLIENTS;
     if (esp_wifi_get_config(WIFI_IF_AP, &ap_conf) == ESP_OK) {
-	if (ap_conf.ap.max_connection < AP_MAX_CLIENTS) {
-	    Serial.printf("\n>>> [AUTO-HEAL] AP max_connection was %d! Re-forcing to %d...<<<<\r\n", 
-			  ap_conf.ap.max_connection, AP_MAX_CLIENTS);
-	    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, 0, AP_MAX_CLIENTS);
-	    configure_short_dhcp_lease();
-	    esp_wifi_get_config(WIFI_IF_AP, &ap_conf);
-	}
+	enforce_ap_config();
++	esp_wifi_get_config(WIFI_IF_AP, &ap_conf);
 	max_sta_configured = ap_conf.ap.max_connection;
     }
 
@@ -815,10 +832,10 @@ void send_to_slaves(const char *str) {
 	    }
 	#else
 	    NetworkUDP udpMaster;
-	    for (uint16_t tries = 1; tries < 3; tries++) {
+	    for (uint16_t tryn = 1; tryn < 3; tryn++) {
 		for (uint8_t i = 0; i < slave_ip_count; i++) {
 		    if (udpMaster.beginPacket(Slave_IPs[i], 23)) {
-			Serial.printf("Sending %s to %s via UDP try %d\n\r", str, Slave_IPs[i].toString().c_str(), i);
+			Serial.printf("Sending %s to %s via UDP try %d\n\r", str, Slave_IPs[i].toString().c_str(), tryn);
 			udpMaster.println(str); // Send the pattern digits with a newline delimiter
 			udpMaster.endPacket();
 			delay(5);
@@ -1231,13 +1248,6 @@ void wifi_setup(void (*main_page_callback)() = nullptr, void (*ota_start_callbac
   // I think this is default now?
   WiFi.setAutoReconnect(true);
 
-  // Enforce 10 clients immediately now that OmWebServer has likely settled
-  if (!WIFI_SLAVE_MODE && (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA || WIFI_FORCEAP_MODE)) {
-      Serial.printf("\n>>>>>>>>>> Post-Init: Enforcing %d AP Clients & 20m DHCP Lease <<<<<<<<<<\n", AP_MAX_CLIENTS);
-      WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, 0, AP_MAX_CLIENTS);
-      configure_short_dhcp_lease();
-  }
-
   ArduinoOTA.onStart([ota_start_callback]() {
     Serial.println("\r\n[OTA] Update started. Freeing network resources and locking loop.");
     ota_in_progress = true;
@@ -1273,6 +1283,10 @@ void wifi_loop() {
 
   Splitter.handle();
   WebServer->tick();
+  if (ap_needs_config) {
+      ap_needs_config = false;
+      enforce_ap_config();
+  }
 
   listen_for_master_broadcast(); // Slave reads this continuously
 
