@@ -63,9 +63,13 @@
 #define WIFI_AP_PASSWORD "Ledpassword"
 #endif
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 #ifndef WIFI_AP_CHANNEL
 #define WIFI_AP_CHANNEL 1
 #endif
+#pragma message ("AP Channel set to: " TOSTRING(WIFI_AP_CHANNEL))
 
 volatile bool wifi_network_stable = false;
 
@@ -345,7 +349,10 @@ void onApEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_AP_START:
 	wifi_network_stable = true;
         // The AP interface is now fully up and running
-        Serial.printf("[WIFI AP] Access Point Started successfully! IP: %s\r\n", WiFi.softAPIP().toString().c_str());
+	// Need |St for serial sync with Pi
+	// but this is likely too early ESP32 is not going to be ready for the reply
+        Serial.printf("|Started WIFI AP successfully! IP: %s on channel ", WiFi.softAPIP().toString().c_str());
+	Serial.println(WiFi.channel());
 	if (wifi_connect_callback) wifi_connect_callback();
         break;
 
@@ -426,7 +433,7 @@ void print_ap_client_table() {
 	if (ap_conf.ap.max_connection < AP_MAX_CLIENTS) {
 	    Serial.printf("\n>>> [AUTO-HEAL] AP max_connection was %d! Re-forcing to %d...<<<<\r\n", 
 			  ap_conf.ap.max_connection, AP_MAX_CLIENTS);
-	    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, 1, 0, AP_MAX_CLIENTS);
+	    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, 0, AP_MAX_CLIENTS);
 	    configure_short_dhcp_lease();
 	    esp_wifi_get_config(WIFI_IF_AP, &ap_conf);
 	}
@@ -444,6 +451,8 @@ void print_ap_client_table() {
     int wifi_slots_left = (int)max_sta_configured - (int)wifi_sta_list.num;
 
     Serial.println("\r\n============================= AP STATUS =============================");
+    Serial.print("Wi-Fi AP channel: ");
+    Serial.println(WiFi.channel());
     Serial.printf("Wi-Fi Associated STAs : %d / %d (Slots Available: %d)\r\n",
 		  wifi_sta_list.num, max_sta_configured, max(0, wifi_slots_left));
     Serial.printf("Active DHCP IP Leases : %d / %d (Leases Available: %d)\r\n",
@@ -806,12 +815,16 @@ void send_to_slaves(const char *str) {
 	    }
 	#else
 	    NetworkUDP udpMaster;
-	    for (uint8_t i = 0; i < slave_ip_count; i++) {
-		if (udpMaster.beginPacket(Slave_IPs[i], 23)) {
-		    Serial.printf("Sending %s to %s via UDP\n\r", str, Slave_IPs[i].toString().c_str());
-		    udpMaster.println(str); // Send the pattern digits with a newline delimiter
-		    udpMaster.endPacket();
+	    for (uint16_t tries = 1; tries < 3; tries++) {
+		for (uint8_t i = 0; i < slave_ip_count; i++) {
+		    if (udpMaster.beginPacket(Slave_IPs[i], 23)) {
+			Serial.printf("Sending %s to %s via UDP try %d\n\r", str, Slave_IPs[i].toString().c_str(), i);
+			udpMaster.println(str); // Send the pattern digits with a newline delimiter
+			udpMaster.endPacket();
+			delay(5);
+		    }
 		}
+		delay(10);
 	    }
 	#endif
     } else {
@@ -1029,6 +1042,7 @@ void connectionStatus(const char *ssid, bool trying, bool failure, bool success)
       lastMasterBootToken = 0;    // Forces a fresh sync check via UDP stream
       wifi_network_stable = true;
       Splitter.restart();
+      // Need |St for serial sync with Pi
       Serial.printf("|Started wifi, slave mode enabled? %d\n\r", WIFI_SLAVE_MODE);
 
       restart_ota_service();
