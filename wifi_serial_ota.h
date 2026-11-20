@@ -345,6 +345,84 @@ struct APClient {
 APClient ap_clients[16];
 volatile bool ap_needs_config = false;
 
+struct MdnsHostEntry {
+    IPAddress ip;
+    char hostname[24];
+    bool valid;
+};
+static MdnsHostEntry mdns_host_cache[MAX_SLAVES + 4];
+
+static String extract_ota_hostname(String raw) {
+    raw.trim();
+    if (raw.endsWith(".local")) {
+        raw.remove(raw.length() - 6);
+    }
+    if (raw.startsWith("NOFLASH-")) {
+        raw.remove(0, 8);
+    }
+    const char *markers[] = { "-Slave-", "-ForceAP-", "-Master-" };
+    int cut = -1;
+    for (uint8_t i = 0; i < 3; i++) {
+        int idx = raw.indexOf(markers[i]);
+        if (idx >= 0 && (cut < 0 || idx < cut)) {
+            cut = idx;
+        }
+    }
+    if (cut >= 0) {
+        raw = raw.substring(0, cut);
+    }
+    return raw;
+}
+
+static String lookup_client_hostname(IPAddress ip) {
+    if ((uint32_t)ip == 0) return String("");
+    for (uint8_t i = 0; i < (MAX_SLAVES + 4); i++) {
+        if (mdns_host_cache[i].valid && mdns_host_cache[i].ip == ip) {
+            return String(mdns_host_cache[i].hostname);
+        }
+    }
+    return String("");
+}
+
+static void scan_mdns_client_hostnames() {
+    if (WIFI_SLAVE_MODE || !wifi_network_stable) return;
+
+    static bool mdns_initialized = false;
+    if (!mdns_initialized) {
+        mdns_initialized = MDNS.begin(get_hostname().c_str());
+        if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
+            esp_netif_t *ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+            if (ap_netif) mdns_netif_action(ap_netif, MDNS_EVENT_ENABLE_IP4);
+        }
+        if (WiFi.getMode() == WIFI_STA || WiFi.getMode() == WIFI_AP_STA) {
+            esp_netif_t *sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+            if (sta_netif) mdns_netif_action(sta_netif, MDNS_EVENT_ENABLE_IP4);
+        }
+    }
+
+    int n = MDNS.queryService("arduino", "tcp");
+    Serial.printf("[mDNS] queryService(_arduino._tcp) returned %d\r\n", n);
+    if (n <= 0) return;
+
+    uint8_t slot = 0;
+    for (int i = 0; i < n && slot < (MAX_SLAVES + 4); i++) {
+        IPAddress addr = MDNS.address(i);
+        String raw_host = String(MDNS.hostname(i));
+        String host = extract_ota_hostname(raw_host);
+        Serial.printf("[mDNS] [%d] IP=%s raw='%s' -> host='%s'\r\n",
+                      i, addr.toString().c_str(), raw_host.c_str(), host.c_str());
+        if ((uint32_t)addr == 0) continue;
+        if (host.length() == 0) continue;
+        mdns_host_cache[slot].ip = addr;
+        strlcpy(mdns_host_cache[slot].hostname, host.c_str(), sizeof(mdns_host_cache[slot].hostname));
+        mdns_host_cache[slot].valid = true;
+        slot++;
+    }
+    for (uint8_t i = slot; i < (MAX_SLAVES + 4); i++) {
+        mdns_host_cache[i].valid = false;
+    }
+}
+
 void onApEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     switch (event) {
     case ARDUINO_EVENT_WIFI_AP_START:
@@ -490,10 +568,12 @@ void print_ap_client_table() {
 	    }
 	}
 
-	Serial.printf("[%02d] MAC: %02X:%02X:%02X:%02X:%02X:%02X | RSSI: %4d dBm | IP: %s\r\n",
+	IPAddress sta_ip;
+	String hname = sta_ip.fromString(ip_str) ? lookup_client_hostname(sta_ip) : String("(unk)");
+	Serial.printf("[%02d] MAC: %02X:%02X:%02X:%02X:%02X:%02X | RSSI: %4d dBm | IP: %-15s | Host: %s\r\n",
 		      i + 1,
 		      sta->mac[0], sta->mac[1], sta->mac[2], sta->mac[3], sta->mac[4], sta->mac[5],
-		      sta->rssi, ip_str);
+		      sta->rssi, ip_str, hname.c_str());
     }
     Serial.println("=====================================================================\r\n");
 }
@@ -726,13 +806,17 @@ void rebuild_main_page() {
             if (slave_ip_count == 0) {
                 w.puts("None");
             } else {
+                w.puts("<ul>\n");
                 for(uint8_t i = 0; i < slave_ip_count; i++) {
-                    w.puts("<a href=http://");
+                    w.puts("<li><a href=http://");
                     w.puts(Slave_IPs[i].toString().c_str());
                     w.puts("/>");
                     w.puts(Slave_IPs[i].toString().c_str());
                     w.puts("</a> ");
+                    String hname = lookup_client_hostname(Slave_IPs[i]);
+                    if (hname.length() > 0) { w.putf("(%s) ", hname.c_str()); }
                 }
+                w.puts("</ul>\n");
             }
             w.puts("<BR>\n");
         }
@@ -1345,6 +1429,9 @@ void wifi_loop() {
     if (WIFI_SLAVE_MODE && wifi_network_stable && (uint32_t)Master_IP != 0) {
         slave_ip_sent = false;
         send_slave_ip_to_master_tries = 0;
+    }
+    if (!WIFI_SLAVE_MODE && wifi_network_stable) {
+        scan_mdns_client_hostnames();
     }
   }
 }
