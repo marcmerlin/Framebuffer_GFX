@@ -345,6 +345,46 @@ struct APClient {
 APClient ap_clients[16];
 volatile bool ap_needs_config = false;
 
+#ifdef NVRAM
+uint8_t get_ap_channel();
+void set_ap_channel(uint8_t ch);
+String get_ap_ssid();
+void set_ap_ssid(const String& new_ssid);
+String get_beacon_id();
+void set_beacon_id(const String& new_id);
+#else
+inline uint8_t get_ap_channel() { return (uint8_t)WIFI_AP_CHANNEL; }
+inline void set_ap_channel(uint8_t ch) {}
+inline String get_ap_ssid() { return String(WIFI_AP_SSID); }
+inline void set_ap_ssid(const String& new_ssid) {}
+inline String get_beacon_id() { return String(WIFI_BEACON_ID).substring(0, BEACON_STR_SIZE - 1); }
+inline void set_beacon_id(const String& new_id) {}
+#endif
+
+void set_wifi_country_jp() {
+    wifi_country_t cur = {};
+    esp_err_t err = esp_wifi_get_country(&cur);
+    if (err == ESP_ERR_WIFI_NOT_INIT) return;
+    if (err == ESP_OK && cur.cc[0] == 'J' && cur.cc[1] == 'P' &&
+        cur.schan == 1 && cur.nchan == 14 && cur.policy == WIFI_COUNTRY_POLICY_MANUAL) {
+        return;
+    }
+    wifi_country_t country = {};
+    country.cc[0] = 'J';
+    country.cc[1] = 'P';
+    country.cc[2] = '\0';
+    country.schan = 1;
+    country.nchan = 14;
+    country.max_tx_power = 20;
+    country.policy = WIFI_COUNTRY_POLICY_MANUAL;
+    err = esp_wifi_set_country(&country);
+    if (err == ESP_OK) {
+        Serial.println("[WIFI] Country set to JP (ch 1-14, manual policy)");
+    } else {
+        Serial.printf("[WIFI] esp_wifi_set_country(JP) failed: 0x%x\r\n", err);
+    }
+}
+
 struct MdnsHostEntry {
     IPAddress ip;
     char hostname[24];
@@ -503,17 +543,33 @@ void configure_short_dhcp_lease() {
 
 void enforce_ap_config() {
     static uint8_t heal_retries = 0;
+    static uint8_t last_target_ch = 0;
+    static String last_target_ssid = "";
     if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) return;
+    set_wifi_country_jp();
+    uint8_t target_ch = get_ap_channel();
+    String target_ssid = get_ap_ssid();
+    if (target_ch != last_target_ch || target_ssid != last_target_ssid) {
+        heal_retries = 0;
+        last_target_ch = target_ch;
+        last_target_ssid = target_ssid;
+    }
 
     wifi_config_t ap_conf;
     if (esp_wifi_get_config(WIFI_IF_AP, &ap_conf) != ESP_OK) return;
 
-    if (ap_conf.ap.max_connection < AP_MAX_CLIENTS || ap_conf.ap.channel != WIFI_AP_CHANNEL) {
+    char cur_ssid[33];
+    size_t cur_len = (ap_conf.ap.ssid_len > 0 && ap_conf.ap.ssid_len <= 32) ? ap_conf.ap.ssid_len : strnlen((const char*)ap_conf.ap.ssid, 32);
+    memcpy(cur_ssid, ap_conf.ap.ssid, cur_len);
+    cur_ssid[cur_len] = '\0';
+
+    if (ap_conf.ap.max_connection < AP_MAX_CLIENTS || ap_conf.ap.channel != target_ch || target_ssid != cur_ssid) {
         if (heal_retries >= 2) return;
         heal_retries++;
-        Serial.printf("\n>>> [AUTO-HEAL] AP ch=%d max_conn=%d! Re-forcing ch=%d max_conn=%d...<<<<\r\n",
-                      ap_conf.ap.channel, ap_conf.ap.max_connection, WIFI_AP_CHANNEL, AP_MAX_CLIENTS);
-        WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, 0, AP_MAX_CLIENTS);
+        Serial.printf("\n>>> [AUTO-HEAL] AP ssid='%s' ch=%d max_conn=%d! Re-forcing ssid='%s' ch=%d max_conn=%d...<<<<\r\n",
+                      cur_ssid, ap_conf.ap.channel, ap_conf.ap.max_connection, target_ssid.c_str(), target_ch, AP_MAX_CLIENTS);
+        WiFi.softAP(target_ssid.c_str(), WIFI_AP_PASSWORD, target_ch, 0, AP_MAX_CLIENTS);
+
         configure_short_dhcp_lease();
     } else {
         heal_retries = 0;
@@ -531,7 +587,7 @@ void print_ap_client_table() {
     uint8_t max_sta_configured = AP_MAX_CLIENTS;
     if (esp_wifi_get_config(WIFI_IF_AP, &ap_conf) == ESP_OK) {
 	enforce_ap_config();
-+	esp_wifi_get_config(WIFI_IF_AP, &ap_conf);
+	esp_wifi_get_config(WIFI_IF_AP, &ap_conf);
 	max_sta_configured = ap_conf.ap.max_connection;
     }
 
@@ -628,8 +684,9 @@ void broadcast_master_presence() {
              IPAddress broadcastIP = isAP ? IPAddress(255, 255, 255, 255) : WiFi.broadcastIP();
              
              // Prepare the tagged payload
-             MasterBeaconPacket beacon = {0};
-             strncpy(beacon.beacon_id, WIFI_BEACON_ID, sizeof(beacon.beacon_id) - 1);
+	     MasterBeaconPacket beacon = {0};
+             String beacon_id = get_beacon_id();
+             strncpy(beacon.beacon_id, beacon_id.c_str(), sizeof(beacon.beacon_id) - 1);
              beacon.boot_token = masterBootToken;
              
              if (udp.beginPacket(broadcastIP, UDP_DISCOVERY_PORT)) {
@@ -765,6 +822,60 @@ bool wifi_handle_url(OmXmlWriter &w, OmWebRequest &request) {
         } else {
             w.putf("Invalid Slave IP: %s<BR>\n", val.c_str());
         }
+    } else if (strcmp(key, "apchannel") == 0) {
+        #ifdef NVRAM
+        val.trim();
+        int ch = val.toInt();
+        if (ch >= 1 && ch <= 14) {
+            set_ap_channel((uint8_t)ch);
+            ap_needs_config = true;
+            w.putf("Saved AP Channel: %d<BR>\n", get_ap_channel());
+        } else {
+            w.putf("Invalid AP Channel (1-14): %s<BR>\n", val.c_str());
+        }
+        #else
+        w.puts("NVRAM not enabled<BR>\n");
+        #endif
+    } else if (strcmp(key, "apssid") == 0) {
+        #ifdef NVRAM
+        val.replace("%20", " ");
+        val.replace('+', ' ');
+        val.replace("\"", "");
+        val.replace("<", "");
+        val.replace(">", "");
+        val.trim();
+        if (val.length() > 0) {
+            set_ap_ssid(val);
+            ap_needs_config = true;
+            w.putf("Saved AP SSID: %s<BR>\n", get_ap_ssid().c_str());
+        } else {
+            w.puts("Empty AP SSID ignored<BR>\n");
+        }
+        #else
+        w.puts("NVRAM not enabled<BR>\n");
+        #endif
+    } else if (strcmp(key, "beaconid") == 0) {
+        #ifdef NVRAM
+        val.replace("%20", "");
+        val.replace("+", "");
+        val.replace(" ", "");
+        val.replace("\"", "");
+        val.replace("<", "");
+        val.replace(">", "");
+        val.trim();
+        if (val.length() > 0) {
+            set_beacon_id(val);
+            if (WIFI_SLAVE_MODE) {
+                lastMasterBootToken = 0;
+                slave_ip_sent = false;
+            }
+            w.putf("Saved Beacon ID: %s<BR>\n", get_beacon_id().c_str());
+        } else {
+            w.puts("Empty Beacon ID ignored<BR>\n");
+        }
+        #else
+        w.puts("NVRAM not enabled<BR>\n");
+        #endif
     } else {
         w.putf("Unknown wifi_form parameter: %s<BR>\n", key);
     }
@@ -831,6 +942,9 @@ void rebuild_main_page() {
     {
         #ifdef NVRAM
         w.putf("Hostname: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=hostname VALUE=\"%s\"><INPUT TYPE=submit VALUE=Set></FORM>", get_hostname().c_str());
+        w.putf("AP Channel: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=apchannel VALUE=\"%d\"><INPUT TYPE=submit VALUE=Set></FORM>", get_ap_channel());
+        w.putf("AP SSID: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=apssid VALUE=\"%s\"><INPUT TYPE=submit VALUE=Set></FORM>", get_ap_ssid().c_str());
+        w.putf("Beacon ID: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=beaconid VALUE=\"%s\"><INPUT TYPE=submit VALUE=Set></FORM>", get_beacon_id().c_str());
         #endif
         if (WIFI_SLAVE_MODE) {
             w.putf("Master IP: <FORM METHOD=GET ACTION=/wifi_form><INPUT NAME=masterip VALUE=\"%s\"><INPUT TYPE=submit VALUE=Set></FORM>", Master_IP.toString().c_str());
@@ -858,7 +972,8 @@ void listen_for_master_broadcast() {
             if (!udpActive) {
                 udp.begin(UDP_DISCOVERY_PORT);
                 udpActive = true;
-                Serial.printf(">>>>>>>>>>>>>  Slave Discovery reliably bound to port %d, listening for %s\r\n", UDP_DISCOVERY_PORT, WIFI_BEACON_ID);
+                Serial.printf(">>>>>>>>>>>>>  Slave Discovery reliably bound to port %d, listening for %s\r\n", UDP_DISCOVERY_PORT, get_beacon_id().c_str());
+
             }
 
             packetSize = udp.parsePacket();
@@ -867,12 +982,13 @@ void listen_for_master_broadcast() {
 
                 MasterBeaconPacket beacon;
                 udp.read((uint8_t*)&beacon, sizeof(beacon));
-		beacon.beacon_id[BEACON_STR_SIZE]=0;
+		beacon.beacon_id[BEACON_STR_SIZE-1]=0;
                 uint32_t receivedToken = beacon.boot_token;
                 
                 // Reject packets that do not match our defined network ID
-                if (strncmp(beacon.beacon_id, WIFI_BEACON_ID, sizeof(beacon.beacon_id)) != 0) {
-		    Serial.printf("!!!!!>>>>>>>>>>>>>  Slave ignoring beacon %s != %s from %s\r\n", beacon.beacon_id , WIFI_BEACON_ID, senderIP.toString().c_str());
+                String expected_beacon = get_beacon_id();
+                if (strncmp(beacon.beacon_id, expected_beacon.c_str(), sizeof(beacon.beacon_id)) != 0) {
+		    Serial.printf("!!!!!>>>>>>>>>>>>>  Slave ignoring beacon %s != %s from %s\r\n", beacon.beacon_id, expected_beacon.c_str(), senderIP.toString().c_str());
                     return; 
                 }
                 
@@ -1127,6 +1243,7 @@ void connectionStatus(const char *ssid, bool trying, bool failure, bool success)
   if (trying)       { 
       what = "trying"; 
       wifi_network_stable = false;
+      set_wifi_country_jp();
       Splitter.restart(); // CRITICAL: Stop UDP poll on interface drop
   }
   else if (failure) { 
@@ -1165,28 +1282,31 @@ void connectionStatus(const char *ssid, bool trying, bool failure, bool success)
   if (!ap and failure_cnt > 1) {
       // For the wifi slave, allow switching forever between AP and home test network until one works
       if (WIFI_SLAVE_MODE) {
+	  String ap_ssid = get_ap_ssid();
           WebServer->clearWifis();
           WiFi.disconnect();
           failure_cnt = 0;
           if (!WIFI_CLIENT_TESTING_NETWORK) {
-              Serial.println(">>>>>>>>>>>>>>>>>>>> Client/Slave mode: Too many failures with AP " WIFI_AP_SSID ", switching to " WIFI_SSID);
+              Serial.printf(">>>>>>>>>>>>>>>>>>>> Client/Slave mode: Too many failures with AP %s, switching to %s\r\n", ap_ssid.c_str(), WIFI_SSID);
+
               WebServer->addWifi(WIFI_SSID, WIFI_PASSWORD); // home test network
               WIFI_CLIENT_TESTING_NETWORK = true;
           } else {
-              Serial.println(">>>>>>>>>>>>>>>>>>>> Client/Slave mode: Too many failures with test network " WIFI_SSID ", switching to AP " WIFI_AP_SSID);
-              WebServer->addWifi(WIFI_AP_SSID, WIFI_AP_PASSWORD); // Back to AP network
+              Serial.printf(">>>>>>>>>>>>>>>>>>>> Client/Slave mode: Too many failures with test network %s, switching to AP %s\r\n", WIFI_SSID, ap_ssid.c_str());
+              WebServer->addWifi(ap_ssid, WIFI_AP_PASSWORD); // Back to AP network
               WIFI_CLIENT_TESTING_NETWORK = false;
 
           }
       // Switch to AP mode after 2 attempts to connect to the test network as slave
       } else { 
-          Serial.println(">>>>>>>>>>>>>>>>>>>> Too many failures setting up Wifi client to " WIFI_SSID ", switching to Wifi AP mode to " WIFI_AP_SSID);
+          String ap_ssid = get_ap_ssid();
+          Serial.printf(">>>>>>>>>>>>>>>>>>>> Too many failures setting up Wifi client to %s, switching to Wifi AP mode to %s\r\n", WIFI_SSID, ap_ssid.c_str());
           ap = true;
           WebServer->clearWifis();
           WiFi.disconnect();
 
           // Note this forces a 4 client limit, we override in AUTO-HEAL callback
-          WebServer->setAccessPoint(WIFI_AP_SSID, WIFI_AP_PASSWORD);
+          WebServer->setAccessPoint(ap_ssid, WIFI_AP_PASSWORD);
 
           // AP is up! Restart Splitter so it binds to the new AP interface (192.168.4.1)
           Splitter.restart();
@@ -1313,15 +1433,21 @@ void wifi_setup(void (*main_page_callback)() = nullptr, void (*ota_start_callbac
     }
   }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
+  // Initialize Wi-Fi driver now (STA mode avoids firing AP_START prematurely in ForceAP)
+  // so JP country (ch 1-14) is active synchronously before OmWebServer's first scan/AP start.
+  WiFi.mode(WIFI_STA);
+  set_wifi_country_jp();
+
   // Are we using the fallback testing network (by default we use the AP made by the master)
   if (WIFI_SLAVE_MODE) {
       // try to connect to the ESP32 AP first
+      String ap_ssid = get_ap_ssid();
       WIFI_CLIENT_TESTING_NETWORK = false;
-      Serial.println(">>>>>>>>>>>>>> Wifi slave mode, will try to connect to AP " WIFI_AP_SSID);
-      WebServer->addWifi(WIFI_AP_SSID, WIFI_AP_PASSWORD); // MarcLED
+      Serial.printf(">>>>>>>>>>>>>> Wifi slave mode, will try to connect to AP %s\r\n", ap_ssid.c_str());
+      WebServer->addWifi(ap_ssid, WIFI_AP_PASSWORD); // MarcLED
   } else if (WIFI_FORCEAP_MODE) { 
     // Note this forces a 4 client limit, we override in AUTO-HEAL callback
-      WebServer->setAccessPoint(WIFI_AP_SSID, WIFI_AP_PASSWORD);
+      WebServer->setAccessPoint(get_ap_ssid(), WIFI_AP_PASSWORD);
   } else { 
       // Start as a client for home network, if that fails, connectionStatus() will take
       // the next step
@@ -1525,8 +1651,63 @@ extern void display_iphostname();
       return master_slave_forceap;
   }
 
+  void set_ap_channel(uint8_t ch) {
+      if (ch < 1 || ch > 14) return;
+      prefs.begin(NVRAM_BUCKET, false);
+      Serial.printf("%%%%%%%%%% saving apchannel %d in %s\r\n", ch, NVRAM_BUCKET);
+      prefs.putUChar("apchannel", ch);
+      prefs.end();
+  }
+
+  uint8_t get_ap_channel() {
+      prefs.begin(NVRAM_BUCKET, true);
+      uint8_t ch = prefs.getUChar("apchannel", 0);
+      prefs.end();
+      if (ch >= 1 && ch <= 14) return ch;
+      return (uint8_t)WIFI_AP_CHANNEL;
+  }
+
+  void set_ap_ssid(const String& new_ssid) {
+      prefs.begin(NVRAM_BUCKET, false);
+      String truncated = new_ssid.substring(0, 32);
+      Serial.printf("%%%%%%%%%% saving apssid %s in %s\r\n", truncated.c_str(), NVRAM_BUCKET);
+      prefs.putString("apssid", truncated);
+      prefs.end();
+  }
+
+  String get_ap_ssid() {
+      prefs.begin(NVRAM_BUCKET, true);
+      String stored = prefs.getString("apssid", "");
+      prefs.end();
+      if (stored.length() > 0) return stored;
+      return String(WIFI_AP_SSID);
+  }
+
+  static String cached_beacon_id = "";
+  static bool beacon_id_loaded = false;
+
+  void set_beacon_id(const String& new_id) {
+      prefs.begin(NVRAM_BUCKET, false);
+      String truncated = new_id.substring(0, BEACON_STR_SIZE - 1);
+      Serial.printf("%%%%%%%%%% saving beaconid %s in %s\r\n", truncated.c_str(), NVRAM_BUCKET);
+      prefs.putString("beaconid", truncated);
+      prefs.end();
+      cached_beacon_id = truncated;
+      beacon_id_loaded = true;
+  }
+
+  String get_beacon_id() {
+      if (!beacon_id_loaded) {
+          prefs.begin(NVRAM_BUCKET, true);
+          String stored = prefs.getString("beaconid", "");
+          prefs.end();
+          cached_beacon_id = (stored.length() > 0) ? stored : String(WIFI_BEACON_ID).substring(0, BEACON_STR_SIZE - 1);
+          beacon_id_loaded = true;
+      }
+      return cached_beacon_id;
+  }
+
   bool process_nvram_serial(char readchar) {
-  
     if (readchar == 'W') {
       Serial.printf("Saving Current Brightness To Flash: %d\r\n", matrix_brightness);
       set_nvram_brightness(matrix_brightness);
